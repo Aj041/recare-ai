@@ -21,12 +21,16 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
 }
 
-function PatientSummary() {
+function PatientSummary({ displayedAlertIds = [] }) {
   const {
+    dataMode,
     selectedPatient,
     recoveryPlans,
     checkIns,
     patientSummaries,
+    hasPatientHistoryChanged,
+    patientHistoryStatus,
+    patientHistoryError,
   } = usePatientData()
   const patientCheckIns = selectedPatient
     ? checkIns.filter((checkIn) => checkIn.patient_id === selectedPatient.id)
@@ -44,6 +48,17 @@ function PatientSummary() {
   const recoveryPlan = selectedPatient
     ? recoveryPlans[selectedPatient.id]
     : null
+  const historyChanged = selectedPatient
+    ? hasPatientHistoryChanged(selectedPatient.id)
+    : false
+  const displayedAlertIdSet = new Set(displayedAlertIds)
+  const summaryAlerts = summary?.active_alerts
+  const alertsAlreadyDisplayed = summaryAlerts?.filter(
+    (alert) => alert?.alert_id && displayedAlertIdSet.has(alert.alert_id),
+  )
+  const additionalSummaryAlerts = summaryAlerts?.filter(
+    (alert) => !alert?.alert_id || !displayedAlertIdSet.has(alert.alert_id),
+  )
 
   return (
     <section
@@ -56,7 +71,7 @@ function PatientSummary() {
         </span>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Selected synthetic profile
+            {dataMode === 'demo' ? 'Selected synthetic profile' : 'Selected live profile'}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-navy" id="patient-summary-title">
             Patient summary
@@ -76,6 +91,104 @@ function PatientSummary() {
           </p>
           <p className="mt-1 text-sm text-muted">Patient ID: {selectedPatient.id}</p>
 
+          {dataMode === 'live' ? (
+            <>
+              <dl className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl bg-canvas p-4">
+                  <dt className="text-sm text-muted">Recorded check-ins</dt>
+                  <dd className="mt-2 text-2xl font-semibold text-navy">
+                    {patientHistoryStatus === 'loading'
+                      ? 'Loading'
+                      : patientHistoryStatus === 'error'
+                        ? 'Unavailable'
+                        : patientCheckIns.length}
+                  </dd>
+                </div>
+                <div className="rounded-xl bg-canvas p-4">
+                  <dt className="text-sm text-muted">Latest check-in timestamp</dt>
+                  <dd className="mt-2 text-sm font-medium text-navy">
+                    {patientHistoryStatus === 'loading'
+                      ? 'Loading'
+                      : patientHistoryStatus === 'error'
+                        ? 'Unavailable'
+                        : latestCheckIn?.submitted_at
+                          ? formatDate(latestCheckIn.submitted_at)
+                          : 'Not provided'}
+                  </dd>
+                </div>
+              </dl>
+
+              {patientHistoryStatus === 'loading' ? (
+                <p className="mt-4 text-sm text-muted" role="status">
+                  Loading live check-in details...
+                </p>
+              ) : patientHistoryStatus === 'error' ? (
+                <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-950" role="alert">
+                  Live check-in details are unavailable: {patientHistoryError}
+                </p>
+              ) : latestCheckIn ? (
+                <section className="mt-5 rounded-xl border border-line p-4">
+                  <h3 className="font-semibold text-navy">
+                    Latest backend-recorded information
+                  </h3>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-navy">
+                    <span className="font-semibold">Backend symptoms field:</span>{' '}
+                    {latestCheckIn.reported_symptoms || 'Not provided'}
+                  </p>
+                  {latestCheckIn.notes ? (
+                    <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-navy">
+                      <span className="font-semibold">Backend notes:</span>{' '}
+                      {latestCheckIn.notes}
+                    </p>
+                  ) : null}
+                  <p className="mt-2 text-sm text-muted">
+                    Pain level: {latestCheckIn.pain_score ?? 'Not provided'}
+                    {' · '}Medication taken: Not provided by backend
+                    {' · '}Temperature:{' '}
+                    {latestCheckIn.temperature_c === null ||
+                    latestCheckIn.temperature_c === undefined
+                      ? 'Not provided'
+                      : `${latestCheckIn.temperature_c} °C`}
+                  </p>
+                </section>
+              ) : (
+                <p className="mt-4 text-sm text-muted">
+                  No live check-ins are recorded for this patient.
+                </p>
+              )}
+
+              <dl className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-xl border border-line p-4">
+                  <dt className="text-sm font-semibold text-navy">
+                    Recovery plan availability
+                  </dt>
+                  <dd className="mt-2 text-sm leading-6 text-muted">
+                    Unavailable — no recovery-plan retrieval route is confirmed.
+                    Extracted PDF text is not a structured plan.
+                  </dd>
+                </div>
+                <div className="rounded-xl border border-line p-4">
+                  <dt className="text-sm font-semibold text-navy">
+                    Backend-generated summary
+                  </dt>
+                  <dd className="mt-2 text-sm leading-6 text-muted">
+                    Unavailable — no doctor-summary endpoint is confirmed.
+                  </dd>
+                </div>
+                <div className="rounded-xl border border-line p-4 sm:col-span-2">
+                  <dt className="text-sm font-semibold text-navy">
+                    Explainable AI alerts
+                  </dt>
+                  <dd className="mt-2 text-sm leading-6 text-muted">
+                    Unavailable — the current alert route returns ordinary
+                    database records, not alert-engine evaluations. No live
+                    risk or health conclusion is inferred.
+                  </dd>
+                </div>
+              </dl>
+            </>
+          ) : (
+          <>
           <dl className="mt-5 grid gap-4 sm:grid-cols-2">
             <div className="rounded-xl bg-canvas p-4">
               <dt className="text-sm text-muted">Recorded check-ins</dt>
@@ -133,14 +246,31 @@ function PatientSummary() {
                   : 'Not provided'}
               </dd>
             </div>
+            <div className="sm:col-span-2">
+              <dt className="text-xs text-muted">Missing fields</dt>
+              <dd className="mt-1 text-navy">
+                {summary.latest_check_in.missing_fields === null
+                  ? 'Not provided'
+                  : summary.latest_check_in.missing_fields.length > 0
+                    ? summary.latest_check_in.missing_fields.join('; ')
+                    : 'No missing fields listed in this summary output.'}
+              </dd>
+            </div>
           </dl>
 
           <div className="mt-6 border-t border-line pt-5">
             <h3 className="font-semibold text-navy">
               Structured summary output
             </h3>
-            <p className="mt-1 text-xs leading-5 text-muted">
-              Synthetic fixture only. No local AI summary is generated.
+            <p
+              className={`mt-1 text-xs leading-5 ${
+                historyChanged ? 'font-medium text-amber-900' : 'text-muted'
+              }`}
+              role={historyChanged ? 'status' : undefined}
+            >
+              {historyChanged
+                ? 'Static synthetic summary and alert fixtures have not been recomputed after this patient’s check-in history changed.'
+                : 'Synthetic fixture only. No local AI summary is generated.'}
             </p>
 
             {!summary ? (
@@ -227,13 +357,13 @@ function PatientSummary() {
                   </h4>
                   {summary.active_alerts === null ? (
                     <p className="mt-2 text-sm text-muted">Not provided</p>
-                  ) : summary.active_alerts.length > 0 ? (
+                  ) : additionalSummaryAlerts.length > 0 ? (
                     <div className="mt-3 space-y-3">
-                      {summary.active_alerts.map((alert, index) =>
+                      {additionalSummaryAlerts.map((alert, index) =>
                         alert ? (
                           <AlertCard
                             alert={alert}
-                            key={alert.alert_id ?? `summary-alert-${index}`}
+                            key={alert.alert_id}
                           />
                         ) : (
                           <p
@@ -245,6 +375,12 @@ function PatientSummary() {
                         ),
                       )}
                     </div>
+                  ) : alertsAlreadyDisplayed.length > 0 ? (
+                    <p className="mt-2 text-sm leading-6 text-muted">
+                      {alertsAlreadyDisplayed.length} active{' '}
+                      {alertsAlreadyDisplayed.length === 1 ? 'alert is' : 'alerts are'}{' '}
+                      also in the Explainable demo alerts section.
+                    </p>
                   ) : (
                     <p className="mt-2 text-sm leading-6 text-muted">
                       No active alerts are listed in this summary output. This
@@ -265,6 +401,8 @@ function PatientSummary() {
               fixture, not a locally generated AI summary.
             </p>
           </div>
+          </>
+          )}
         </>
       )}
     </section>

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { FileText, UploadCloud, X } from 'lucide-react'
 import ErrorState from './ErrorState.jsx'
 import LoadingState from './LoadingState.jsx'
-import { preparePdfFormData } from '../services/api.js'
+import { apiService, preparePdfFormData } from '../services/api.js'
+import { usePatientData } from '../context/usePatientData.js'
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024
 
@@ -34,24 +35,40 @@ function getValidationError(file) {
 }
 
 function PDFUpload() {
+  const {
+    dataMode,
+    selectedPatient,
+    pdfUploadsByPatientId,
+    rememberPdfUpload,
+  } = usePatientData()
   const [selectedFile, setSelectedFile] = useState(null)
   const [formData, setFormData] = useState(null)
   const [status, setStatus] = useState('idle')
+  const [uploadStatus, setUploadStatus] = useState('idle')
   const [errorMessage, setErrorMessage] = useState('')
+  const [uploadError, setUploadError] = useState('')
+  const [uploadResponse, setUploadResponse] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const inputRef = useRef(null)
   const prepareTimer = useRef(null)
+  const uploadController = useRef(null)
+  const isUploading = useRef(false)
 
-  useEffect(
-    () => () => {
-      if (prepareTimer.current !== null) {
-        window.clearTimeout(prepareTimer.current)
-      }
-    },
-    [],
-  )
+  const savedUpload =
+    dataMode === 'live' && selectedPatient
+      ? pdfUploadsByPatientId[selectedPatient.id]
+      : null
+
+  useEffect(() => () => {
+    if (prepareTimer.current !== null) {
+      window.clearTimeout(prepareTimer.current)
+    }
+    uploadController.current?.abort()
+  }, [])
 
   function handleFile(file) {
+    uploadController.current?.abort()
+    isUploading.current = false
     if (prepareTimer.current !== null) {
       window.clearTimeout(prepareTimer.current)
       prepareTimer.current = null
@@ -60,6 +77,9 @@ function PDFUpload() {
     setSelectedFile(null)
     setFormData(null)
     setErrorMessage('')
+    setUploadError('')
+    setUploadResponse(null)
+    setUploadStatus('idle')
     setStatus('loading')
 
     prepareTimer.current = window.setTimeout(() => {
@@ -120,6 +140,7 @@ function PDFUpload() {
   }
 
   function removeFile() {
+    uploadController.current?.abort()
     if (prepareTimer.current !== null) {
       window.clearTimeout(prepareTimer.current)
       prepareTimer.current = null
@@ -128,8 +149,68 @@ function PDFUpload() {
     setFormData(null)
     setStatus('idle')
     setErrorMessage('')
+    setUploadStatus('idle')
+    setUploadError('')
+    setUploadResponse(null)
     if (inputRef.current) {
       inputRef.current.value = ''
+    }
+  }
+
+  async function uploadSelectedPdf() {
+    if (isUploading.current || !selectedFile || !selectedPatient) {
+      return
+    }
+
+    isUploading.current = true
+    uploadController.current?.abort()
+    const controller = new AbortController()
+    uploadController.current = controller
+    const patientId = selectedPatient.id
+    setUploadStatus('loading')
+    setUploadError('')
+    setUploadResponse(null)
+
+    try {
+      const response = await apiService.uploadPdf(
+        patientId,
+        selectedFile,
+        { signal: controller.signal },
+      )
+
+      if (controller.signal.aborted) {
+        return
+      }
+
+      if (typeof response?.extracted_text !== 'string') {
+        throw new Error(
+          'The PDF endpoint did not return the verified extracted_text field.',
+        )
+      }
+
+      const savedResult = {
+        care_plan_id: response.care_plan_id ?? null,
+        extracted_text: response.extracted_text,
+      }
+      rememberPdfUpload(patientId, savedResult)
+      setUploadResponse(savedResult)
+      setUploadStatus('success')
+    } catch (error) {
+      if (controller.signal.aborted || error?.kind === 'aborted') {
+        return
+      }
+
+      setUploadStatus('error')
+      setUploadError(
+        error instanceof Error
+          ? error.message
+          : 'The PDF could not be uploaded.',
+      )
+    } finally {
+      isUploading.current = false
+      if (uploadController.current === controller) {
+        uploadController.current = null
+      }
     }
   }
 
@@ -144,7 +225,7 @@ function PDFUpload() {
         </span>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Documents
+            {dataMode === 'demo' ? 'Documents · demo' : 'Documents · live'}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-navy" id="pdf-upload-title">
             Discharge PDF upload
@@ -206,7 +287,10 @@ function PDFUpload() {
                     {selectedFile.name}
                   </p>
                   <p className="mt-1 text-sm text-muted">
-                    {formatFileSize(selectedFile.size)} · FormData prepared locally
+                    {formatFileSize(selectedFile.size)} ·{' '}
+                    {dataMode === 'demo'
+                      ? 'FormData prepared locally'
+                      : 'Ready to send to the live backend'}
                   </p>
                 </div>
               </div>
@@ -220,18 +304,81 @@ function PDFUpload() {
                 Remove
               </button>
             </div>
-            <p className="mt-3 text-sm leading-6 text-teal-dark" role="status">
-              PDF ready for backend integration. Nothing has been uploaded or
-              analyzed.
-            </p>
+            {dataMode === 'demo' ? (
+              <p className="mt-3 text-sm leading-6 text-teal-dark" role="status">
+                PDF ready for backend integration. Nothing has been uploaded or
+                analyzed.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <p className="text-sm leading-6 text-teal-dark">
+                  Upload is associated with {selectedPatient?.displayName ?? 'no selected patient'}.
+                  The backend currently extracts text only; AI interpretation
+                  is unavailable.
+                </p>
+                <button
+                  className="min-h-11 rounded-full bg-teal px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-dark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal disabled:cursor-wait disabled:opacity-70"
+                  disabled={!selectedPatient || uploadStatus === 'loading'}
+                  onClick={uploadSelectedPdf}
+                  type="button"
+                >
+                  {uploadStatus === 'loading'
+                    ? 'Uploading PDF...'
+                    : 'Upload PDF and extract text'}
+                </button>
+                {!selectedPatient ? (
+                  <p className="text-sm text-muted">
+                    Select a live patient before uploading.
+                  </p>
+                ) : null}
+                {uploadStatus === 'error' ? (
+                  <ErrorState
+                    description={uploadError}
+                    title="PDF upload failed"
+                  />
+                ) : null}
+                {uploadStatus === 'success' && uploadResponse ? (
+                  <div
+                    aria-live="polite"
+                    className="rounded-xl border border-line bg-white p-4"
+                    role="status"
+                  >
+                    <p className="font-semibold text-navy">
+                      PDF text extraction succeeded
+                    </p>
+                    <p className="mt-1 text-sm text-muted">
+                      Care plan record ID:{' '}
+                      {uploadResponse.care_plan_id ?? 'Not returned'}.
+                      Structured AI interpretation was not returned.
+                    </p>
+                    <details className="mt-3">
+                      <summary className="cursor-pointer font-medium text-teal-dark">
+                        View extracted text
+                      </summary>
+                      <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-canvas p-3 text-xs leading-5 text-navy">
+                        {uploadResponse.extracted_text || 'No text returned.'}
+                      </pre>
+                    </details>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
         )}
       </div>
 
       <p className="mt-4 text-xs leading-5 text-muted">
-        The file stays in this browser session. AI analysis and backend upload
-        are not connected.
+        {dataMode === 'demo'
+          ? 'The file stays in this browser session. AI analysis and backend upload are not connected.'
+          : 'Live uploads send the selected file and database patient ID. Extracted text is not an AI-generated recovery plan.'}
       </p>
+      {savedUpload && uploadResponse === null ? (
+        <p className="mt-3 rounded-lg bg-canvas px-4 py-3 text-sm text-muted">
+          Previously uploaded for this patient — care plan record ID:{' '}
+          {savedUpload.care_plan_id ?? 'Not returned'}. AI interpretation is
+          unavailable.
+        </p>
+      ) : null}
     </section>
   )
 }

@@ -4,7 +4,7 @@ import RecoveryPlanDetails from './RecoveryPlanDetails.jsx'
 import { usePatientData } from '../context/usePatientData.js'
 
 function RecoveryPlan() {
-  const { selectedPatient, recoveryPlans } = usePatientData()
+  const { dataMode, selectedPatient, recoveryPlans } = usePatientData()
   const plan = selectedPatient
     ? recoveryPlans[selectedPatient.id]
     : null
@@ -30,8 +30,18 @@ function RecoveryPlan() {
 
       {!plan ? (
         <EmptyState
-          description="Select a demo patient to view the associated recovery-plan fixture."
-          title="No patient selected"
+          description={
+            dataMode === 'demo'
+              ? 'Select a demo patient to view the associated recovery-plan fixture.'
+              : selectedPatient
+                ? 'The verified backend does not provide a recovery-plan retrieval endpoint. PDF text extraction is not an AI-generated plan.'
+                : 'Select a live patient. No live recovery plan is available from the current backend contract.'
+          }
+          title={
+            selectedPatient && dataMode === 'live'
+              ? 'Live recovery plan unavailable'
+              : 'No patient selected'
+          }
         />
       ) : (
         <>

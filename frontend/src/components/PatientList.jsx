@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { CircleUserRound, Search } from 'lucide-react'
 import EmptyState from './EmptyState.jsx'
+import ErrorState from './ErrorState.jsx'
+import LoadingState from './LoadingState.jsx'
 import { usePatientData } from '../context/usePatientData.js'
 import { normalizeAlertEvaluation } from '../utils/aiOutputAdapters.js'
 
@@ -18,11 +20,16 @@ function getLatestCheckIn(checkIns, patientId) {
 
 function PatientList() {
   const {
+    dataMode,
     patients,
     selectedPatientId,
     checkIns,
     alertEvaluations,
+    patientListStatus,
+    patientListError,
+    patientHistoryStatus,
     selectPatient,
+    refreshLivePatients,
   } = usePatientData()
   const [searchTerm, setSearchTerm] = useState('')
   const normalizedSearch = searchTerm.trim().toLowerCase()
@@ -43,7 +50,7 @@ function PatientList() {
         </span>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Shared synthetic profiles
+            {dataMode === 'demo' ? 'Shared synthetic profiles' : 'Backend patient records'}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-navy" id="patient-list-title">
             Patient list
@@ -71,14 +78,44 @@ function PatientList() {
         />
       </div>
       <p aria-live="polite" className="mt-3 text-xs text-muted">
-        {filteredPatients.length} of {patients.length} demo patients
+        {filteredPatients.length} of {patients.length}{' '}
+        {dataMode === 'demo' ? 'demo patients' : 'live patients'}
       </p>
 
-      {filteredPatients.length === 0 ? (
+      {dataMode === 'live' &&
+      ['idle', 'loading'].includes(patientListStatus) ? (
+        <div className="mt-4">
+          <LoadingState message="Loading live patient list..." />
+        </div>
+      ) : patientListStatus === 'error' ? (
+        <div className="mt-4 space-y-3">
+          <ErrorState
+            description={patientListError}
+            title="Patient list unavailable"
+          />
+          {dataMode === 'live' ? (
+            <button
+              className="min-h-10 rounded-full border border-line px-4 text-sm font-semibold text-navy hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+              onClick={() => refreshLivePatients()}
+              type="button"
+            >
+              Retry patient list
+            </button>
+          ) : null}
+        </div>
+      ) : filteredPatients.length === 0 ? (
         <div className="mt-4">
           <EmptyState
-            description="Try another patient name or ID."
-            title="No patients match this search"
+            description={
+              patients.length === 0 && dataMode === 'live'
+                ? 'Register a live patient in the Patient Portal. Demo profiles are not included.'
+                : 'Try another patient name or ID.'
+            }
+            title={
+              patients.length === 0 && dataMode === 'live'
+                ? 'No live patients yet'
+                : 'No patients match this search'
+            }
           />
         </div>
       ) : (
@@ -95,6 +132,22 @@ function PatientList() {
               unavailable: 'Evaluation unavailable',
             }[evaluation.state]
             const isSelected = patient.id === selectedPatientId
+            const historyWasLoaded =
+              dataMode === 'demo' || isSelected
+            const latestCheckInLabel =
+              dataMode === 'live' && !historyWasLoaded
+                ? 'Select patient to load'
+                : isSelected && patientHistoryStatus === 'loading'
+                  ? 'Loading history...'
+                  : isSelected && patientHistoryStatus === 'error'
+                    ? 'History unavailable'
+                    : latestCheckIn
+                      ? new Date(latestCheckIn.submitted_at).toLocaleString()
+                      : 'No recorded check-ins'
+            const liveReviewStatus =
+              dataMode === 'live'
+                ? 'AI evaluation unavailable'
+                : reviewStatus
 
             return (
               <li className="py-2 first:pt-1 last:pb-1" key={patient.id}>
@@ -118,7 +171,7 @@ function PatientList() {
                     <span className="block text-xs font-medium text-muted">
                       Latest check-in
                     </span>
-                    {latestCheckIn ? (
+                    {latestCheckIn && historyWasLoaded ? (
                       <time
                         className="mt-1 block text-sm text-navy"
                         dateTime={latestCheckIn.submitted_at}
@@ -127,7 +180,7 @@ function PatientList() {
                       </time>
                     ) : (
                       <span className="mt-1 block text-sm text-muted">
-                        Not provided
+                        {latestCheckInLabel}
                       </span>
                     )}
                     <span
@@ -137,7 +190,7 @@ function PatientList() {
                           : 'bg-canvas text-muted'
                       }`}
                     >
-                      {reviewStatus}
+                      {liveReviewStatus}
                     </span>
                   </span>
                 </button>
@@ -147,8 +200,9 @@ function PatientList() {
         </ul>
       )}
       <p className="mt-4 text-xs leading-5 text-muted">
-        Evaluation labels reflect only static synthetic fixtures. An unavailable
-        evaluation or an evaluation with no alerts is not a health assessment.
+        {dataMode === 'demo'
+          ? 'Evaluation labels reflect only static synthetic fixtures. An unavailable evaluation or an evaluation with no alerts is not a health assessment.'
+          : 'Live patient records do not include explainable AI evaluations. An unavailable evaluation is not a health assessment.'}
       </p>
     </section>
   )

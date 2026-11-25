@@ -1,66 +1,344 @@
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react'
 import { mockData, syntheticRecoveryPlanFixture } from '../data/mockData.js'
+import { apiService } from '../services/api.js'
+import {
+  normalizeBackendHistory,
+  normalizeBackendPatient,
+  normalizeBackendPatientList,
+} from '../utils/backendDataAdapters.js'
 import PatientDataContext from './patientDataContext.js'
 
+const initialCheckInCounts = mockData.initialCheckIns.reduce(
+  (counts, checkIn) => ({
+    ...counts,
+    [checkIn.patient_id]: (counts[checkIn.patient_id] ?? 0) + 1,
+  }),
+  {},
+)
+const EMPTY_RECORD = Object.freeze({})
+
+function getErrorMessage(error, fallback) {
+  return error instanceof Error ? error.message : fallback
+}
+
 function PatientDataProvider({ children }) {
-  const [patients, setPatients] = useState(mockData.patients)
-  const [selectedPatientId, setSelectedPatientId] = useState(
+  const [dataMode, setDataMode] = useState('demo')
+  const [demoPatients, setDemoPatients] = useState(mockData.patients)
+  const [selectedDemoPatientId, setSelectedDemoPatientId] = useState(
     mockData.selectedPatientId,
   )
   const [recoveryPlans, setRecoveryPlans] = useState(
     mockData.recoveryPlansByPatientId,
   )
-  const [checkIns, setCheckIns] = useState(mockData.initialCheckIns)
+  const [demoCheckIns, setDemoCheckIns] = useState(mockData.initialCheckIns)
+  const [livePatients, setLivePatients] = useState([])
+  const [selectedLivePatientId, setSelectedLivePatientId] = useState(null)
+  const [livePatientsStatus, setLivePatientsStatus] = useState('idle')
+  const [livePatientsError, setLivePatientsError] = useState('')
+  const [liveCheckIns, setLiveCheckIns] = useState([])
+  const [liveHistoryStatus, setLiveHistoryStatus] = useState('idle')
+  const [liveHistoryError, setLiveHistoryError] = useState('')
+  const [pdfUploadsByPatientId, setPdfUploadsByPatientId] = useState({})
   const checkInSequence = useRef(0)
+  const isCreatingPatient = useRef(false)
+  const patientListRequest = useRef(null)
+  const historyRequest = useRef(null)
+  const selectedLivePatientIdRef = useRef(selectedLivePatientId)
+  const dataModeRef = useRef(dataMode)
+
+  useEffect(() => {
+    selectedLivePatientIdRef.current = selectedLivePatientId
+    dataModeRef.current = dataMode
+  }, [dataMode, selectedLivePatientId])
+
+  const refreshLivePatients = useCallback(async () => {
+    patientListRequest.current?.abort()
+    const controller = new AbortController()
+    patientListRequest.current = controller
+    setLivePatientsStatus('loading')
+    setLivePatientsError('')
+
+    try {
+      const response = await apiService.getPatients({
+        signal: controller.signal,
+      })
+      const normalizedPatients = normalizeBackendPatientList(response)
+
+      if (controller.signal.aborted) {
+        return { cancelled: true }
+      }
+
+      setLivePatients(normalizedPatients)
+      setSelectedLivePatientId((currentPatientId) =>
+        normalizedPatients.some((patient) => patient.id === currentPatientId)
+          ? currentPatientId
+          : normalizedPatients[0]?.id ?? null,
+      )
+      setLivePatientsStatus('success')
+      return { patients: normalizedPatients }
+    } catch (error) {
+      if (controller.signal.aborted || error?.kind === 'aborted') {
+        return { cancelled: true }
+      }
+
+      const message = getErrorMessage(
+        error,
+        'The live patient list could not be loaded.',
+      )
+      setLivePatientsError(message)
+      setLivePatientsStatus('error')
+      return { error: message }
+    } finally {
+      if (patientListRequest.current === controller) {
+        patientListRequest.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (dataMode !== 'live') {
+      patientListRequest.current?.abort()
+      historyRequest.current?.abort()
+      return undefined
+    }
+
+    let cancelled = false
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        refreshLivePatients()
+      }
+    })
+    return () => {
+      cancelled = true
+      patientListRequest.current?.abort()
+      historyRequest.current?.abort()
+    }
+  }, [dataMode, refreshLivePatients])
+
+  useEffect(() => {
+    if (dataMode !== 'live') {
+      historyRequest.current?.abort()
+      return undefined
+    }
+
+    if (selectedLivePatientId === null) {
+      Promise.resolve().then(() => {
+        if (
+          dataModeRef.current === 'live' &&
+          selectedLivePatientIdRef.current === null
+        ) {
+          setLiveCheckIns([])
+          setLiveHistoryStatus('empty')
+          setLiveHistoryError('')
+        }
+      })
+      return undefined
+    }
+
+    historyRequest.current?.abort()
+    const controller = new AbortController()
+    const requestedPatientId = selectedLivePatientId
+    historyRequest.current = controller
+    Promise.resolve().then(async () => {
+      if (controller.signal.aborted) {
+        return
+      }
+      setLiveCheckIns([])
+      setLiveHistoryStatus('loading')
+      setLiveHistoryError('')
+
+      try {
+        const response = await apiService.getPatientHistory(
+          requestedPatientId,
+          { signal: controller.signal },
+        )
+        const result = normalizeBackendHistory(response, requestedPatientId)
+
+        if (
+          controller.signal.aborted ||
+          dataModeRef.current !== 'live' ||
+          selectedLivePatientIdRef.current !== requestedPatientId
+        ) {
+          return
+        }
+
+        setLiveCheckIns(result.history)
+        setLiveHistoryStatus(
+          result.history.length === 0 ? 'empty' : 'success',
+        )
+      } catch (error) {
+        if (
+          controller.signal.aborted ||
+          error?.kind === 'aborted' ||
+          dataModeRef.current !== 'live' ||
+          selectedLivePatientIdRef.current !== requestedPatientId
+        ) {
+          return
+        }
+
+        setLiveHistoryError(
+          getErrorMessage(error, 'Patient history could not be loaded.'),
+        )
+        setLiveHistoryStatus('error')
+      }
+    })
+
+    return () => controller.abort()
+  }, [dataMode, selectedLivePatientId])
+
+  const selectedPatientId =
+    dataMode === 'demo' ? selectedDemoPatientId : selectedLivePatientId
+  const patients = dataMode === 'demo' ? demoPatients : livePatients
   const selectedPatient =
     patients.find((patient) => patient.id === selectedPatientId) ?? null
+  const checkIns = dataMode === 'demo' ? demoCheckIns : liveCheckIns
+  const activeRecoveryPlans =
+    dataMode === 'demo' ? recoveryPlans : EMPTY_RECORD
+  const alertEvaluations =
+    dataMode === 'demo' ? mockData.alertEvaluationsByPatientId : EMPTY_RECORD
+  const patientSummaries =
+    dataMode === 'demo' ? mockData.patientSummariesById : EMPTY_RECORD
+  const patientListStatus =
+    dataMode === 'demo' ? 'success' : livePatientsStatus
+  const patientListError = dataMode === 'demo' ? '' : livePatientsError
+  const patientHistoryStatus =
+    dataMode === 'demo'
+      ? selectedPatient
+        ? 'success'
+        : 'empty'
+      : liveHistoryStatus
+  const patientHistoryError = dataMode === 'demo' ? '' : liveHistoryError
 
   const createPatient = useCallback(
-    ({ displayName, id }) => {
+    async ({ displayName, id, age, gender, phone }) => {
       const normalizedName = displayName.trim()
-      const normalizedId = id.trim().toUpperCase()
 
-      if (!normalizedName || !normalizedId) {
+      if (!normalizedName) {
+        return { error: 'Patient name is required.' }
+      }
+
+      if (dataMode === 'live') {
+        if (isCreatingPatient.current) {
+          return { error: 'Patient creation is already in progress.' }
+        }
+
+        const parsedAge =
+          age === undefined || age === null || age === ''
+            ? undefined
+            : Number(age)
+        if (
+          parsedAge !== undefined &&
+          (!Number.isInteger(parsedAge) || parsedAge < 0)
+        ) {
+          return { error: 'Age must be a non-negative whole number.' }
+        }
+
+        isCreatingPatient.current = true
+        try {
+          const createdResponse = await apiService.createPatient({
+            name: normalizedName,
+            ...(parsedAge === undefined ? {} : { age: parsedAge }),
+            ...(gender?.trim() ? { gender: gender.trim() } : {}),
+            ...(phone?.trim() ? { phone: phone.trim() } : {}),
+          })
+          const patient = normalizeBackendPatient(createdResponse)
+
+          setLivePatients((currentPatients) =>
+            currentPatients.some((item) => item.id === patient.id)
+              ? currentPatients
+              : [...currentPatients, patient],
+          )
+          setSelectedLivePatientId(patient.id)
+
+          const refreshResult = await refreshLivePatients()
+          return {
+            patient,
+            ...(refreshResult.error
+              ? { refreshError: refreshResult.error }
+              : {}),
+          }
+        } catch (error) {
+          return {
+            error: getErrorMessage(
+              error,
+              'The live patient could not be created.',
+            ),
+          }
+        } finally {
+          isCreatingPatient.current = false
+        }
+      }
+
+      const normalizedId = typeof id === 'string' ? id.trim().toUpperCase() : ''
+      if (!normalizedId) {
         return { error: 'Patient name and ID are required.' }
       }
 
-      if (patients.some((patient) => patient.id.toLowerCase() === normalizedId.toLowerCase())) {
+      if (
+        demoPatients.some(
+          (patient) => patient.id.toLowerCase() === normalizedId.toLowerCase(),
+        )
+      ) {
         return { error: 'That patient ID is already in use.' }
       }
 
       const patient = { id: normalizedId, displayName: normalizedName }
-      setPatients((currentPatients) => [...currentPatients, patient])
+      setDemoPatients((currentPatients) => [...currentPatients, patient])
       setRecoveryPlans((currentPlans) => ({
         ...currentPlans,
         [patient.id]: { ...syntheticRecoveryPlanFixture },
       }))
-      setSelectedPatientId(patient.id)
+      setSelectedDemoPatientId(patient.id)
 
       return { patient }
     },
-    [patients],
+    [dataMode, demoPatients, refreshLivePatients],
   )
 
   const selectPatient = useCallback(
     (patientId) => {
-      if (!patients.some((patient) => patient.id === patientId)) {
+      if (dataMode === 'live') {
+        const normalizedId =
+          typeof patientId === 'string' && /^\d+$/.test(patientId)
+            ? Number(patientId)
+            : patientId
+
+        if (
+          !Number.isInteger(normalizedId) ||
+          !livePatients.some((patient) => patient.id === normalizedId)
+        ) {
+          return { error: 'Select an existing live patient.' }
+        }
+
+        setSelectedLivePatientId(normalizedId)
+        return { patientId: normalizedId }
+      }
+
+      if (!demoPatients.some((patient) => patient.id === patientId)) {
         return { error: 'Select an existing demo patient.' }
       }
 
-      setSelectedPatientId(patientId)
+      setSelectedDemoPatientId(patientId)
       return { patientId }
     },
-    [patients],
+    [dataMode, demoPatients, livePatients],
   )
 
   const addCheckIn = useCallback(
     (payload) => {
-      if (!patients.some((patient) => patient.id === payload.patient_id)) {
+      if (dataMode !== 'demo') {
+        throw new Error(
+          'Live check-ins are unavailable until the backend confirms how original symptom text is stored.',
+        )
+      }
+
+      if (!demoPatients.some((patient) => patient.id === payload.patient_id)) {
         throw new Error('The selected demo patient no longer exists.')
       }
 
@@ -71,34 +349,70 @@ function PatientDataProvider({ children }) {
         submitted_at: new Date().toISOString(),
         data_source: 'synthetic_demo',
       }
-      setCheckIns((currentCheckIns) => [checkIn, ...currentCheckIns])
+      setDemoCheckIns((currentCheckIns) => [checkIn, ...currentCheckIns])
       return checkIn
     },
-    [patients],
+    [dataMode, demoPatients],
+  )
+
+  const rememberPdfUpload = useCallback((patientId, upload) => {
+    setPdfUploadsByPatientId((currentUploads) => ({
+      ...currentUploads,
+      [patientId]: upload,
+    }))
+  }, [])
+
+  const hasPatientHistoryChanged = useCallback(
+    (patientId) =>
+      dataMode === 'demo' &&
+      demoCheckIns.filter((checkIn) => checkIn.patient_id === patientId)
+        .length !== (initialCheckInCounts[patientId] ?? 0),
+    [dataMode, demoCheckIns],
   )
 
   const value = useMemo(
     () => ({
+      dataMode,
+      setDataMode,
       patients,
       selectedPatientId,
       selectedPatient,
-      recoveryPlans,
+      recoveryPlans: activeRecoveryPlans,
       checkIns,
-      alertEvaluations: mockData.alertEvaluationsByPatientId,
-      patientSummaries: mockData.patientSummariesById,
+      alertEvaluations,
+      patientSummaries,
+      patientListStatus,
+      patientListError,
+      patientHistoryStatus,
+      patientHistoryError,
+      pdfUploadsByPatientId,
+      refreshLivePatients,
+      rememberPdfUpload,
       createPatient,
       selectPatient,
       addCheckIn,
+      hasPatientHistoryChanged,
     }),
     [
+      dataMode,
       patients,
       selectedPatientId,
       selectedPatient,
-      recoveryPlans,
+      activeRecoveryPlans,
       checkIns,
+      alertEvaluations,
+      patientSummaries,
+      patientListStatus,
+      patientListError,
+      patientHistoryStatus,
+      patientHistoryError,
+      pdfUploadsByPatientId,
+      refreshLivePatients,
+      rememberPdfUpload,
       createPatient,
       selectPatient,
       addCheckIn,
+      hasPatientHistoryChanged,
     ],
   )
 

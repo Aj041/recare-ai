@@ -32,6 +32,24 @@ function normalizeTextList(value) {
   })
 }
 
+function normalizeWarningSigns(value) {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.map((item) => {
+    if (isRecord(item) && typeof item.symptom === 'string') {
+      const symptom = displayText(item.symptom)
+      const evidence = displayText(item.evidence)
+      return evidence === 'Not specified'
+        ? symptom
+        : `${symptom} — ${evidence}`
+    }
+
+    return normalizeTextList([item])[0]
+  })
+}
+
 function normalizeSymptoms(value) {
   if (!Array.isArray(value)) {
     return []
@@ -66,8 +84,11 @@ export function normalizeRecoveryPlan(value) {
       ? value.medications.map(normalizeMedication)
       : [],
     recovery_instructions: normalizeTextList(value.recovery_instructions),
-    warning_signs: normalizeTextList(value.warning_signs),
-    follow_up: normalizeTextList(value.follow_up),
+    warning_signs: normalizeWarningSigns(value.warning_signs),
+    follow_up:
+      typeof value.follow_up === 'string'
+        ? normalizeTextList([value.follow_up])
+        : normalizeTextList(value.follow_up),
     missing_information: normalizeTextList(value.missing_information),
     has_missing_information: Array.isArray(value.missing_information),
   }
@@ -75,6 +96,10 @@ export function normalizeRecoveryPlan(value) {
 
 function normalizeSupportingCheckIn(value) {
   const checkIn = isRecord(value) ? value : {}
+  const symptoms = normalizeSymptoms(checkIn.symptoms)
+  if (typeof checkIn.symptom === 'string' && checkIn.symptom.trim()) {
+    symptoms.push(checkIn.symptom)
+  }
 
   return {
     date: typeof checkIn.date === 'string' ? checkIn.date : null,
@@ -83,7 +108,7 @@ function normalizeSupportingCheckIn(value) {
       Number.isFinite(checkIn.pain_score)
         ? checkIn.pain_score
         : null,
-    symptoms: normalizeSymptoms(checkIn.symptoms),
+    symptoms,
   }
 }
 
@@ -92,8 +117,17 @@ function normalizeAlert(value) {
     return null
   }
 
+  const alertId =
+    typeof value.alert_id === 'string' && value.alert_id.trim()
+      ? value.alert_id
+      : null
+
+  if (!alertId) {
+    return null
+  }
+
   return {
-    alert_id: typeof value.alert_id === 'string' ? value.alert_id : null,
+    alert_id: alertId,
     alert_type: typeof value.alert_type === 'string' ? value.alert_type : null,
     rule_triggered:
       typeof value.rule_triggered === 'string' ? value.rule_triggered : null,
@@ -103,6 +137,23 @@ function normalizeAlert(value) {
       : [],
     detected_at: typeof value.detected_at === 'string' ? value.detected_at : null,
   }
+}
+
+export function deduplicateAlertsById(alerts) {
+  const seenIds = new Set()
+
+  return alerts.filter((alert) => {
+    if (!alert?.alert_id) {
+      return true
+    }
+
+    if (seenIds.has(alert.alert_id)) {
+      return false
+    }
+
+    seenIds.add(alert.alert_id)
+    return true
+  })
 }
 
 export function normalizeAlertEvaluation(value) {
@@ -119,9 +170,9 @@ export function normalizeAlertEvaluation(value) {
     }
   }
 
-  const alerts = value.alerts.map(normalizeAlert)
+  const normalizedAlerts = value.alerts.map(normalizeAlert)
 
-  if (alerts.some((alert) => alert === null)) {
+  if (normalizedAlerts.some((alert) => alert === null)) {
     return {
       state: 'unavailable',
       patient_id: typeof value.patient_id === 'string' ? value.patient_id : null,
@@ -130,6 +181,7 @@ export function normalizeAlertEvaluation(value) {
     }
   }
 
+  const alerts = deduplicateAlertsById(normalizedAlerts)
   const state = value.insufficient_history
     ? 'insufficient_history'
     : alerts.length > 0
@@ -155,6 +207,16 @@ export function normalizePatientSummary(value) {
   const latestCheckIn = isRecord(value.latest_check_in)
     ? value.latest_check_in
     : null
+  const latestCheckInSymptoms = latestCheckIn
+    ? normalizeSymptoms(latestCheckIn.symptoms)
+    : []
+  if (
+    latestCheckIn &&
+    typeof latestCheckIn.symptom === 'string' &&
+    latestCheckIn.symptom.trim()
+  ) {
+    latestCheckInSymptoms.push(latestCheckIn.symptom)
+  }
 
   return {
     patient_id: typeof value.patient_id === 'string' ? value.patient_id : null,
@@ -169,12 +231,15 @@ export function normalizePatientSummary(value) {
             Number.isFinite(latestCheckIn.pain_score)
               ? latestCheckIn.pain_score
               : null,
-          symptoms: normalizeSymptoms(latestCheckIn.symptoms),
+          symptoms: latestCheckInSymptoms,
+          missing_fields: Array.isArray(latestCheckIn.missing_fields)
+            ? normalizeTextList(latestCheckIn.missing_fields)
+            : null,
         }
       : null,
     trends: value.trends,
     active_alerts: Array.isArray(value.active_alerts)
-      ? value.active_alerts.map(normalizeAlert)
+      ? deduplicateAlertsById(value.active_alerts.map(normalizeAlert))
       : null,
     missing_information: Array.isArray(value.missing_information)
       ? normalizeTextList(value.missing_information)

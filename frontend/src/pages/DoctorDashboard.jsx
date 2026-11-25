@@ -54,13 +54,21 @@ function AlertEvaluationState({ evaluation }) {
 
 function DoctorDashboard() {
   const {
+    dataMode,
     patients,
     checkIns,
     alertEvaluations,
     selectedPatient,
+    hasPatientHistoryChanged,
+    patientListStatus,
+    patientHistoryStatus,
   } = usePatientData()
+  const isDemo = dataMode === 'demo'
   const selectedEvaluation = normalizeAlertEvaluation(
     selectedPatient ? alertEvaluations[selectedPatient.id] : null,
+  )
+  const displayedAlertIds = selectedEvaluation.alerts.map(
+    (alert) => alert.alert_id,
   )
   const patientsWithCheckIns = patients.filter((patient) =>
     checkIns.some((checkIn) => checkIn.patient_id === patient.id),
@@ -75,40 +83,66 @@ function DoctorDashboard() {
   const metrics = [
     {
       icon: UsersRound,
-      label: 'Registered demo patients',
-      value: patients.length,
-      description: 'Synthetic profiles available to this session',
+      label: isDemo ? 'Registered demo patients' : 'Live patients',
+      value:
+        !isDemo && ['idle', 'loading'].includes(patientListStatus)
+          ? 'Loading'
+          : !isDemo && patientListStatus === 'error'
+            ? 'Unavailable'
+            : patients.length,
+      description: isDemo
+        ? 'Synthetic profiles available to this session'
+        : 'Records returned by the backend patient-list endpoint',
     },
     {
       icon: ClipboardList,
-      label: 'Submitted check-ins',
-      value: checkIns.length,
-      description: 'In-memory check-ins across all demo patients',
+      label: isDemo ? 'Submitted check-ins' : 'Selected patient check-ins',
+      value:
+        !isDemo && patientHistoryStatus === 'loading'
+          ? 'Loading'
+          : !isDemo && patientHistoryStatus === 'error'
+            ? 'Unavailable'
+            : checkIns.length,
+      description: isDemo
+        ? 'In-memory check-ins across all demo patients'
+        : patientHistoryStatus === 'loading'
+          ? 'Loading selected patient history'
+          : patientHistoryStatus === 'error'
+            ? 'Selected patient history could not be loaded'
+          : 'History endpoint data for the currently selected patient only',
     },
     {
       icon: Activity,
-      label: 'Patients with check-ins',
-      value: patientsWithCheckIns,
-      description: 'Unique demo patients with at least one entry',
+      label: isDemo ? 'Patients with check-ins' : 'Patients with check-ins',
+      value: isDemo ? patientsWithCheckIns : 'Unavailable',
+      description: isDemo
+        ? 'Unique demo patients with at least one entry'
+        : 'A global history count is not available from the backend contract',
     },
     {
       icon: AlertTriangle,
-      label: 'Demo alerts for review',
-      value: alertsRequiringReview,
-      description: 'Returned synthetic alert records across demo patients',
+      label: isDemo ? 'Demo alerts for review' : 'Explainable alerts',
+      value: isDemo ? alertsRequiringReview : 'Unavailable',
+      description: isDemo
+        ? 'Returned synthetic alert records across demo patients'
+        : 'No alert-engine evaluation endpoint is available',
     },
   ]
 
   return (
     <div className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 sm:py-12 lg:px-12">
       <PageHeader
-        description="Review synthetic patient profiles, patient-reported check-ins, and clearly labeled demo fixtures."
+        description={
+          isDemo
+            ? 'Review synthetic patient profiles, patient-reported check-ins, and clearly labeled demo fixtures.'
+            : 'Review live patient records returned by the backend. AI summaries and explainable alert evaluation are not connected.'
+        }
         eyebrow="RE:CARE AI - Doctor Dashboard"
         title="Care team overview"
       >
         <span className="inline-flex w-fit items-center gap-2 rounded-full bg-teal-light px-3 py-2 text-xs font-semibold text-teal-dark">
           <span aria-hidden="true" className="size-2 rounded-full bg-teal" />
-          Synthetic demo data
+          {isDemo ? 'Synthetic demo data' : 'Live backend data'}
         </span>
       </PageHeader>
 
@@ -127,7 +161,7 @@ function DoctorDashboard() {
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <PatientSummary />
+        <PatientSummary displayedAlertIds={displayedAlertIds} />
         <PatientHistory />
       </div>
 
@@ -141,23 +175,50 @@ function DoctorDashboard() {
       >
         <div className="mb-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Static synthetic fixtures - no clinical rules run
+            {isDemo
+              ? 'Static synthetic fixtures - no clinical rules run'
+              : 'No live alert-engine evaluation is connected'}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-navy" id="demo-alerts-title">
-            Explainable demo alerts
+            {isDemo ? 'Explainable demo alerts' : 'Explainable alerts'}
           </h2>
         </div>
-        <AlertEvaluationState evaluation={selectedEvaluation} />
-        {selectedEvaluation.alerts.length > 0 ? (
+        {isDemo &&
+        selectedPatient &&
+        hasPatientHistoryChanged(selectedPatient.id) ? (
+          <p
+            className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900"
+            role="status"
+          >
+            This patient&apos;s check-in history has changed since the static
+            demo evaluation was prepared. The fixture has not been recomputed.
+          </p>
+        ) : null}
+        {isDemo ? (
+          <>
+            <AlertEvaluationState evaluation={selectedEvaluation} />
+            {selectedEvaluation.alerts.length > 0 ? (
           <div className="grid gap-4 lg:grid-cols-2">
-            {selectedEvaluation.alerts.map((alert, index) => (
+            {selectedEvaluation.alerts.map((alert) => (
               <AlertCard
                 alert={alert}
-                key={alert.alert_id ?? `${alert.alert_type ?? 'alert'}-${index}`}
+                key={alert.alert_id}
               />
             ))}
           </div>
-        ) : null}
+            ) : null}
+          </>
+        ) : (
+          <div
+            className="rounded-xl border border-line bg-canvas p-4 text-sm leading-6 text-muted"
+            role="status"
+          >
+            Live explainable alert evaluation is unavailable. The verified
+            backend&apos;s alert route returns stored database alerts, not the
+            alert-engine output, so those records are not presented here as
+            explainable AI alerts.
+          </div>
+        )}
       </section>
     </div>
   )

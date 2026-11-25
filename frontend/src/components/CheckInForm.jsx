@@ -4,7 +4,7 @@ import ErrorState from './ErrorState.jsx'
 import { usePatientData } from '../context/usePatientData.js'
 
 function CheckInForm() {
-  const { selectedPatient, addCheckIn } = usePatientData()
+  const { dataMode, selectedPatient, addCheckIn } = usePatientData()
   const [reportedSymptoms, setReportedSymptoms] = useState('')
   const [painScore, setPainScore] = useState('')
   const [medicationTaken, setMedicationTaken] = useState('')
@@ -119,8 +119,28 @@ function CheckInForm() {
 
       {!selectedPatient ? (
         <p className="rounded-xl bg-canvas p-4 text-sm leading-6 text-muted">
-          Select a demo patient to submit a check-in.
+          Select a {dataMode === 'demo' ? 'demo' : 'live'} patient to continue.
         </p>
+      ) : dataMode === 'live' ? (
+        <div
+          className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
+          role="status"
+        >
+          <h3 className="font-semibold">Live check-in submission is paused</h3>
+          <p className="mt-2">
+            The verified backend accepts a symptoms array and a notes string,
+            but Person 2 has not confirmed which field preserves the original
+            free-text symptom report. No request is sent until that mapping is
+            confirmed; this prevents local symptom classification or loss of
+            the patient&apos;s wording.
+          </p>
+          <p className="mt-2">
+            The backend also requires a pain level, while this form allows pain
+            to be omitted. No pain value will be filled in automatically.
+            Medication taken is not supported by this backend contract and will
+            not be reported as saved.
+          </p>
+        </div>
       ) : (
         <>
           <p className="mb-5 rounded-lg bg-canvas px-4 py-3 text-sm leading-6 text-muted">

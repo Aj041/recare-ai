@@ -9,6 +9,8 @@ import {
   YAxis,
 } from 'recharts'
 import EmptyState from './EmptyState.jsx'
+import ErrorState from './ErrorState.jsx'
+import LoadingState from './LoadingState.jsx'
 import { usePatientData } from '../context/usePatientData.js'
 
 function TrendPanel({
@@ -21,6 +23,7 @@ function TrendPanel({
   unit,
   domain,
   ticks,
+  dataMode,
 }) {
   return (
     <section
@@ -45,7 +48,7 @@ function TrendPanel({
               {title} recorded at patient check-ins, oldest to newest.
             </figcaption>
             <div
-              aria-label={`${title} over time for the selected demo patient`}
+              aria-label={`${title} over time for the selected ${dataMode} patient`}
               className="h-72 w-full"
               role="img"
             >
@@ -119,7 +122,13 @@ function TrendPanel({
 }
 
 function RecoveryTrendChart() {
-  const { selectedPatient, checkIns } = usePatientData()
+  const {
+    dataMode,
+    selectedPatient,
+    checkIns,
+    patientHistoryStatus,
+    patientHistoryError,
+  } = usePatientData()
   const patientCheckIns = selectedPatient
     ? checkIns
         .filter((checkIn) => checkIn.patient_id === selectedPatient.id)
@@ -154,7 +163,8 @@ function RecoveryTrendChart() {
     >
       <div className="mb-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-          {selectedPatient?.displayName ?? 'Synthetic demo'}
+          {selectedPatient?.displayName ??
+            (dataMode === 'demo' ? 'Synthetic demo' : 'Live patient')}
         </p>
         <h2 className="mt-1 text-lg font-semibold text-navy" id="recovery-trend-title">
           Recovery trends
@@ -170,10 +180,18 @@ function RecoveryTrendChart() {
           description="Select a patient to view available check-in measurements."
           title="No patient selected"
         />
+      ) : patientHistoryStatus === 'loading' ? (
+        <LoadingState message="Loading measurements for the selected patient..." />
+      ) : patientHistoryStatus === 'error' ? (
+        <ErrorState
+          description={patientHistoryError}
+          title="Live measurements unavailable"
+        />
       ) : (
         <div className="grid gap-5 xl:grid-cols-2">
           <TrendPanel
             color="#0f766e"
+            dataMode={dataMode}
             data={chartData}
             dataKey="pain_score"
             description="At least two reported pain scores are needed to draw a trend."
@@ -185,6 +203,7 @@ function RecoveryTrendChart() {
           />
           <TrendPanel
             color="#153449"
+            dataMode={dataMode}
             data={chartData}
             dataKey="temperature_c"
             description="At least two reported temperatures are needed to draw a trend."

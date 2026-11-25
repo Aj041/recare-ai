@@ -1,9 +1,17 @@
 import { History } from 'lucide-react'
 import EmptyState from './EmptyState.jsx'
+import ErrorState from './ErrorState.jsx'
+import LoadingState from './LoadingState.jsx'
 import { usePatientData } from '../context/usePatientData.js'
 
 function PatientHistory() {
-  const { checkIns, selectedPatient } = usePatientData()
+  const {
+    dataMode,
+    checkIns,
+    selectedPatient,
+    patientHistoryStatus,
+    patientHistoryError,
+  } = usePatientData()
   const patientCheckIns = selectedPatient
     ? checkIns
         .filter((checkIn) => checkIn.patient_id === selectedPatient.id)
@@ -33,9 +41,25 @@ function PatientHistory() {
         </div>
       </div>
 
-      {patientCheckIns.length === 0 ? (
+      {!selectedPatient ? (
         <EmptyState
-          description="Submitted synthetic check-ins will appear here."
+          description="Select a patient to view its check-in history."
+          title="No patient selected"
+        />
+      ) : patientHistoryStatus === 'loading' ? (
+        <LoadingState message="Loading patient history..." />
+      ) : patientHistoryStatus === 'error' ? (
+        <ErrorState
+          description={patientHistoryError}
+          title="Patient history unavailable"
+        />
+      ) : patientCheckIns.length === 0 ? (
+        <EmptyState
+          description={
+            dataMode === 'demo'
+              ? 'Submitted synthetic check-ins will appear here.'
+              : 'No live check-ins are recorded for this patient.'
+          }
           title="No check-ins yet"
         />
       ) : (
@@ -46,19 +70,41 @@ function PatientHistory() {
               key={checkIn.id}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <time
-                  className="text-sm font-semibold text-navy"
-                  dateTime={checkIn.submitted_at}
-                >
-                  {new Date(checkIn.submitted_at).toLocaleString()}
-                </time>
+                {checkIn.submitted_at &&
+                !Number.isNaN(new Date(checkIn.submitted_at).getTime()) ? (
+                  <time
+                    className="text-sm font-semibold text-navy"
+                    dateTime={checkIn.submitted_at}
+                  >
+                    {new Date(checkIn.submitted_at).toLocaleString()}
+                  </time>
+                ) : (
+                  <span className="text-sm font-semibold text-muted">
+                    Timestamp not provided
+                  </span>
+                )}
                 <span className="rounded-full bg-teal-light px-2.5 py-1 text-xs font-semibold text-teal-dark">
-                  Demo entry
+                  {dataMode === 'demo' ? 'Demo entry' : 'Live backend record'}
                 </span>
               </div>
               <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-muted">
-                {checkIn.reported_symptoms || 'Not provided'}
+                {dataMode === 'live' ? (
+                  <>
+                    <span className="font-semibold text-navy">
+                      Backend symptoms field:
+                    </span>{' '}
+                    {checkIn.reported_symptoms || 'Not provided'}
+                  </>
+                ) : (
+                  checkIn.reported_symptoms || 'Not provided'
+                )}
               </p>
+              {dataMode === 'live' && checkIn.notes ? (
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-muted">
+                  <span className="font-semibold text-navy">Backend notes:</span>{' '}
+                  {checkIn.notes}
+                </p>
+              ) : null}
               <dl className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
                 <div>
                   <dt className="text-xs text-muted">Pain score</dt>
@@ -91,7 +137,9 @@ function PatientHistory() {
         </ol>
       )}
       <p className="mt-4 text-xs leading-5 text-muted">
-        Demo history is held in memory and clears when the page is reloaded.
+        {dataMode === 'demo'
+          ? 'Demo history is held in memory and clears when the page is reloaded.'
+          : 'Live history is retrieved from the backend. Medication-taking data is not provided by this contract.'}
       </p>
     </section>
   )

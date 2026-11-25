@@ -1,10 +1,19 @@
 import { ClipboardList, UserRound } from 'lucide-react'
 import EmptyState from './EmptyState.jsx'
+import ErrorState from './ErrorState.jsx'
+import LoadingState from './LoadingState.jsx'
 import RecoveryPlanDetails from './RecoveryPlanDetails.jsx'
 import { usePatientData } from '../context/usePatientData.js'
 
 function PatientOverview() {
-  const { selectedPatient, recoveryPlans, checkIns } = usePatientData()
+  const {
+    dataMode,
+    selectedPatient,
+    recoveryPlans,
+    checkIns,
+    patientHistoryStatus,
+    patientHistoryError,
+  } = usePatientData()
   const patientCheckIns = selectedPatient
     ? checkIns.filter((checkIn) => checkIn.patient_id === selectedPatient.id)
     : []
@@ -30,7 +39,7 @@ function PatientOverview() {
         </span>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-            Selected synthetic profile
+            {dataMode === 'demo' ? 'Selected synthetic profile' : 'Selected live profile'}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-navy" id="patient-overview-title">
             Patient overview
@@ -57,7 +66,12 @@ function PatientOverview() {
               <ClipboardList aria-hidden="true" className="text-teal-dark" size={18} />
               <h3 className="font-semibold text-navy">Available recovery plan</h3>
             </div>
-            {recoveryPlan ? (
+            {dataMode === 'live' ? (
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Unavailable: no recovery-plan retrieval endpoint is confirmed.
+                Extracted PDF text is not a structured recovery plan.
+              </p>
+            ) : recoveryPlan ? (
               <>
                 <p className="mt-2 text-xs font-medium text-muted">
                   Synthetic demo fixture. Not a clinical recommendation.
@@ -73,13 +87,37 @@ function PatientOverview() {
 
           <div className="mt-5 border-t border-line pt-5">
             <h3 className="font-semibold text-navy">Latest patient-reported check-in</h3>
-            {!latestCheckIn ? (
+            {patientHistoryStatus === 'loading' ? (
+              <div className="mt-3">
+                <LoadingState message="Loading selected patient history..." />
+              </div>
+            ) : patientHistoryStatus === 'error' ? (
+              <div className="mt-3">
+                <ErrorState
+                  description={patientHistoryError}
+                  title="Latest check-in unavailable"
+                />
+              </div>
+            ) : !latestCheckIn ? (
               <p className="mt-3 text-sm text-muted">No check-ins recorded.</p>
             ) : (
               <>
-                <p className="mt-3 whitespace-pre-wrap break-words rounded-xl bg-canvas p-4 text-sm leading-6 text-navy">
-                  {latestCheckIn.reported_symptoms || 'Not provided'}
-                </p>
+                <div className="mt-3 space-y-2 rounded-xl bg-canvas p-4 text-sm leading-6 text-navy">
+                  <p className="whitespace-pre-wrap break-words">
+                    <span className="font-semibold">
+                      {dataMode === 'live'
+                        ? 'Backend symptoms field:'
+                        : 'Reported symptoms:'}
+                    </span>{' '}
+                    {latestCheckIn.reported_symptoms || 'Not provided'}
+                  </p>
+                  {dataMode === 'live' && latestCheckIn.notes ? (
+                    <p className="whitespace-pre-wrap break-words">
+                      <span className="font-semibold">Backend notes:</span>{' '}
+                      {latestCheckIn.notes}
+                    </p>
+                  ) : null}
+                </div>
                 <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div>
                     <dt className="text-xs text-muted">Pain score</dt>

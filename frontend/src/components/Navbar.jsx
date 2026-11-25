@@ -1,5 +1,6 @@
 import { HeartPulse } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
+import { usePatientData } from '../context/usePatientData.js'
 
 const navigationLinks = [
   { to: '/patient', label: 'Patient Portal' },
@@ -7,6 +8,8 @@ const navigationLinks = [
 ]
 
 function Navbar() {
+  const { dataMode, setDataMode } = usePatientData()
+
   return (
     <>
       <a
@@ -32,7 +35,37 @@ function Navbar() {
               </span>
             </span>
           </Link>
-          <nav aria-label="Primary navigation" className="flex flex-wrap items-center gap-1">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <div className="rounded-full border border-line bg-canvas p-1">
+              <span className="sr-only" id="data-mode-label">
+                Data mode: demo uses synthetic fixtures; live requests the backend.
+              </span>
+              <div
+                aria-labelledby="data-mode-label"
+                className="flex items-center gap-1"
+                role="group"
+              >
+                {[
+                  { value: 'demo', label: 'DEMO' },
+                  { value: 'live', label: 'LIVE' },
+                ].map(({ value, label }) => (
+                  <button
+                    aria-pressed={dataMode === value}
+                    className={`min-h-9 rounded-full px-3 text-xs font-bold tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
+                      dataMode === value
+                        ? 'bg-teal text-white'
+                        : 'text-muted hover:bg-white hover:text-navy'
+                    }`}
+                    key={value}
+                    onClick={() => setDataMode(value)}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <nav aria-label="Primary navigation" className="flex flex-wrap items-center gap-1">
             <NavLink
               className={({ isActive }) =>
                 `rounded-full px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal sm:px-4 ${
@@ -61,7 +94,8 @@ function Navbar() {
                 {label}
               </NavLink>
             ))}
-          </nav>
+            </nav>
+          </div>
         </div>
       </header>
     </>
