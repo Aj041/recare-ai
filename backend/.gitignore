@@ -1,0 +1,11 @@
+﻿venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+recare.db
+*.db
+runtime_cache/
+uploads/
+.pytest_cache/
