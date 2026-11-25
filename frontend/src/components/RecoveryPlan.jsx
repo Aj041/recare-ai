@@ -1,13 +1,7 @@
 import { ClipboardList } from 'lucide-react'
 import EmptyState from './EmptyState.jsx'
+import RecoveryPlanDetails from './RecoveryPlanDetails.jsx'
 import { usePatientData } from '../context/usePatientData.js'
-
-const planSections = [
-  { key: 'medicationInstructions', label: 'Medication instructions' },
-  { key: 'recoveryInstructions', label: 'Recovery instructions' },
-  { key: 'warningSigns', label: 'Warning signs' },
-  { key: 'followUpInstructions', label: 'Follow-up instructions' },
-]
 
 function RecoveryPlan() {
   const { selectedPatient, recoveryPlans } = usePatientData()
@@ -42,20 +36,10 @@ function RecoveryPlan() {
       ) : (
         <>
           <p className="mb-4 rounded-lg bg-teal-light px-4 py-3 text-sm font-medium text-teal-dark">
-            {plan.source}. This fixture is not generated from or analyzed from a PDF.
+            Synthetic demo fixture. This content is not generated from or
+            analyzed from a PDF. Missing clinical details are not filled in.
           </p>
-          <dl className="grid gap-3 sm:grid-cols-2">
-            {planSections.map(({ key, label }) => {
-              const value = plan[key]?.trim() || 'Not specified'
-
-              return (
-                <div className="rounded-xl border border-line p-4" key={key}>
-                  <dt className="text-sm font-semibold text-navy">{label}</dt>
-                  <dd className="mt-2 text-sm leading-6 text-muted">{value}</dd>
-                </div>
-              )
-            })}
-          </dl>
+          <RecoveryPlanDetails plan={plan} />
         </>
       )}
     </section>

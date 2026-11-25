@@ -15,7 +15,7 @@ function PatientDataProvider({ children }) {
   const [recoveryPlans, setRecoveryPlans] = useState(
     mockData.recoveryPlansByPatientId,
   )
-  const [checkIns, setCheckIns] = useState([])
+  const [checkIns, setCheckIns] = useState(mockData.initialCheckIns)
   const checkInSequence = useRef(0)
   const selectedPatient =
     patients.find((patient) => patient.id === selectedPatientId) ?? null
@@ -37,10 +37,7 @@ function PatientDataProvider({ children }) {
       setPatients((currentPatients) => [...currentPatients, patient])
       setRecoveryPlans((currentPlans) => ({
         ...currentPlans,
-        [patient.id]: {
-          ...syntheticRecoveryPlanFixture,
-          patientId: patient.id,
-        },
+        [patient.id]: { ...syntheticRecoveryPlanFixture },
       }))
       setSelectedPatientId(patient.id)
 
@@ -87,6 +84,8 @@ function PatientDataProvider({ children }) {
       selectedPatient,
       recoveryPlans,
       checkIns,
+      alertEvaluations: mockData.alertEvaluationsByPatientId,
+      patientSummaries: mockData.patientSummariesById,
       createPatient,
       selectPatient,
       addCheckIn,

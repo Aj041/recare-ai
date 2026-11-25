@@ -1,0 +1,142 @@
+import { AlertTriangle } from 'lucide-react'
+
+function displayText(value) {
+  return typeof value === 'string' && value.trim()
+    ? value.trim()
+    : 'Not provided'
+}
+
+function formatAlertType(value) {
+  return displayText(value).replaceAll('_', ' ')
+}
+
+function formatTimestamp(value) {
+  if (typeof value !== 'string' || !value) {
+    return 'Not provided'
+  }
+
+  const timestamp = new Date(value)
+  return Number.isNaN(timestamp.getTime())
+    ? value
+    : timestamp.toLocaleString()
+}
+
+function AlertCard({ alert }) {
+  const supportingCheckIns = Array.isArray(alert?.supporting_check_ins)
+    ? alert.supporting_check_ins
+    : []
+
+  return (
+    <article className="rounded-2xl border border-amber-200 bg-white p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-900">
+            <AlertTriangle aria-hidden="true" size={20} />
+          </span>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-amber-900">
+              Synthetic demo alert
+            </p>
+            <h3 className="mt-1 font-semibold capitalize text-navy">
+              {formatAlertType(alert?.alert_type)}
+            </h3>
+          </div>
+        </div>
+        <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900">
+          Review suggested
+        </span>
+      </div>
+
+      <dl className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Triggered rule
+          </dt>
+          <dd className="mt-1 leading-6 text-navy">
+            {displayText(alert?.rule_triggered)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Detection timestamp
+          </dt>
+          <dd className="mt-1 text-sm text-navy">
+            {formatTimestamp(alert?.detected_at)}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Explanation
+          </dt>
+          <dd className="mt-1 leading-6 text-navy">
+            {displayText(alert?.explanation)}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Supporting check-in records
+          </dt>
+          {supportingCheckIns.length > 0 ? (
+            <ol className="mt-2 grid gap-3 sm:grid-cols-2">
+              {supportingCheckIns.map((checkIn, index) => {
+                const symptoms = Array.isArray(checkIn?.symptoms)
+                  ? checkIn.symptoms.filter(
+                      (symptom) =>
+                        typeof symptom === 'string' && symptom.trim(),
+                    )
+                  : []
+
+                return (
+                  <li
+                    className="rounded-xl border border-line bg-canvas p-3"
+                    key={`${checkIn?.date ?? 'check-in'}-${index}`}
+                  >
+                    <dl className="grid grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <dt className="text-xs text-muted">Supporting date</dt>
+                        <dd className="mt-1 text-navy">
+                          {displayText(checkIn?.date)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted">Pain score</dt>
+                        <dd className="mt-1 text-navy">
+                          {typeof checkIn?.pain_score === 'number' &&
+                          Number.isFinite(checkIn.pain_score)
+                            ? checkIn.pain_score
+                            : 'Not provided'}
+                        </dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="text-xs text-muted">
+                          Reported symptoms
+                        </dt>
+                        <dd className="mt-1 break-words text-navy">
+                          {symptoms.length > 0
+                            ? symptoms.join(', ')
+                            : 'Not provided'}
+                        </dd>
+                      </div>
+                    </dl>
+                  </li>
+                )
+              })}
+            </ol>
+          ) : (
+            <p className="mt-2 text-sm text-muted">
+              No supporting check-in records provided.
+            </p>
+          )}
+        </div>
+      </dl>
+
+      <p className="mt-5 rounded-lg bg-canvas px-4 py-3 text-xs leading-5 text-muted">
+        Static synthetic fixture only. It is not generated by this dashboard or
+        a confirmed API response. Review suggested is a presentation label, not
+        a backend status or clinical risk classification.
+      </p>
+    </article>
+  )
+}
+
+export default AlertCard

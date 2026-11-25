@@ -5,7 +5,13 @@ import { usePatientData } from '../context/usePatientData.js'
 function PatientHistory() {
   const { checkIns, selectedPatient } = usePatientData()
   const patientCheckIns = selectedPatient
-    ? checkIns.filter((checkIn) => checkIn.patient_id === selectedPatient.id)
+    ? checkIns
+        .filter((checkIn) => checkIn.patient_id === selectedPatient.id)
+        .slice()
+        .sort(
+          (first, second) =>
+            new Date(first.submitted_at) - new Date(second.submitted_at),
+        )
     : []
 
   return (
@@ -51,7 +57,7 @@ function PatientHistory() {
                 </span>
               </div>
               <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-muted">
-                {checkIn.reported_symptoms}
+                {checkIn.reported_symptoms || 'Not provided'}
               </p>
               <dl className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
                 <div>
@@ -63,13 +69,18 @@ function PatientHistory() {
                 <div>
                   <dt className="text-xs text-muted">Medication taken</dt>
                   <dd className="mt-1 font-medium text-navy">
-                    {checkIn.medication_taken ? 'Yes' : 'No'}
+                    {typeof checkIn.medication_taken === 'boolean'
+                      ? checkIn.medication_taken
+                        ? 'Yes'
+                        : 'No'
+                      : 'Not provided'}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-xs text-muted">Temperature</dt>
                   <dd className="mt-1 font-medium text-navy">
-                    {checkIn.temperature_c === null
+                    {checkIn.temperature_c === null ||
+                    checkIn.temperature_c === undefined
                       ? 'Not provided'
                       : `${checkIn.temperature_c} °C`}
                   </dd>

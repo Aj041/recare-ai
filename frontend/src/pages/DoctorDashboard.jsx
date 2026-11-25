@@ -1,79 +1,108 @@
 import {
   Activity,
-  AlertCircle,
-  CalendarCheck2,
-  CircleUserRound,
+  AlertTriangle,
   ClipboardList,
-  Clock3,
-  FileText,
+  UsersRound,
 } from 'lucide-react'
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
-import EmptyState from '../components/EmptyState.jsx'
+import AlertCard from '../components/AlertCard.jsx'
+import DashboardMetricCard from '../components/DashboardMetricCard.jsx'
 import PageHeader from '../components/PageHeader.jsx'
+import PatientHistory from '../components/PatientHistory.jsx'
+import PatientList from '../components/PatientList.jsx'
+import PatientOverview from '../components/PatientOverview.jsx'
+import PatientSummary from '../components/PatientSummary.jsx'
+import RecoveryTrendChart from '../components/RecoveryTrendChart.jsx'
 import { usePatientData } from '../context/usePatientData.js'
+import { normalizeAlertEvaluation } from '../utils/aiOutputAdapters.js'
 
-const PLAN_FIELDS = [
-  'medicationInstructions',
-  'recoveryInstructions',
-  'warningSigns',
-  'followUpInstructions',
-]
+function AlertEvaluationState({ evaluation }) {
+  const messageByState = {
+    unavailable: {
+      title: 'Alert evaluation unavailable',
+      description:
+        'No evaluation output is available for this patient. Missing evaluation data does not indicate that the patient is well.',
+    },
+    insufficient_history: {
+      title: 'Insufficient check-in history',
+      description:
+        evaluation.insufficient_history_reason ||
+        'No reason was included in this evaluation output.',
+    },
+    completed_no_alerts: {
+      title: 'Evaluation completed with no alerts',
+      description:
+        'No alerts were returned. This does not indicate that the patient is well.',
+    },
+    alerts_returned: {
+      title: 'Alerts returned for clinician review',
+      description:
+        'The following synthetic alert output is displayed for review; no alert logic runs in this dashboard.',
+    },
+  }
+  const message = messageByState[evaluation.state]
 
-function getWeeklyTrend(checkIns) {
-  const today = new Date()
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(today)
-    date.setDate(today.getDate() - (6 - index))
-    const dateKey = date.toDateString()
-
-    return {
-      day: date.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-      }),
-      logged: checkIns.some(
-        (checkIn) => new Date(checkIn.submitted_at).toDateString() === dateKey,
-      )
-        ? 1
-        : 0,
-    }
-  })
+  return (
+    <div
+      className="mb-4 rounded-xl border border-line bg-canvas p-4"
+      role="status"
+    >
+      <h3 className="font-semibold text-navy">{message.title}</h3>
+      <p className="mt-1 text-sm leading-6 text-muted">{message.description}</p>
+    </div>
+  )
 }
 
 function DoctorDashboard() {
   const {
     patients,
-    selectedPatient,
-    selectedPatientId,
-    recoveryPlans,
     checkIns,
-    selectPatient,
+    alertEvaluations,
+    selectedPatient,
   } = usePatientData()
-  const patientCheckIns = selectedPatient
-    ? checkIns.filter((checkIn) => checkIn.patient_id === selectedPatient.id)
-    : []
-  const latestCheckIn = patientCheckIns[0] ?? null
-  const recoveryPlan = selectedPatient
-    ? recoveryPlans[selectedPatient.id]
-    : null
-  const planFieldsSpecified = recoveryPlan
-    ? PLAN_FIELDS.filter((field) => recoveryPlan[field]?.trim()).length
-    : 0
-  const weeklyTrend = getWeeklyTrend(patientCheckIns)
+  const selectedEvaluation = normalizeAlertEvaluation(
+    selectedPatient ? alertEvaluations[selectedPatient.id] : null,
+  )
+  const patientsWithCheckIns = patients.filter((patient) =>
+    checkIns.some((checkIn) => checkIn.patient_id === patient.id),
+  ).length
+  const alertsRequiringReview = patients.reduce(
+    (total, patient) =>
+      total +
+      normalizeAlertEvaluation(alertEvaluations[patient.id]).alerts.length,
+    0,
+  )
+
+  const metrics = [
+    {
+      icon: UsersRound,
+      label: 'Registered demo patients',
+      value: patients.length,
+      description: 'Synthetic profiles available to this session',
+    },
+    {
+      icon: ClipboardList,
+      label: 'Submitted check-ins',
+      value: checkIns.length,
+      description: 'In-memory check-ins across all demo patients',
+    },
+    {
+      icon: Activity,
+      label: 'Patients with check-ins',
+      value: patientsWithCheckIns,
+      description: 'Unique demo patients with at least one entry',
+    },
+    {
+      icon: AlertTriangle,
+      label: 'Demo alerts for review',
+      value: alertsRequiringReview,
+      description: 'Returned synthetic alert records across demo patients',
+    },
+  ]
 
   return (
     <div className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 sm:py-12 lg:px-12">
       <PageHeader
-        description="Review synthetic patient profiles and check-ins shared from the Patient Portal."
+        description="Review synthetic patient profiles, patient-reported check-ins, and clearly labeled demo fixtures."
         eyebrow="RE:CARE AI - Doctor Dashboard"
         title="Care team overview"
       >
@@ -83,303 +112,53 @@ function DoctorDashboard() {
         </span>
       </PageHeader>
 
-      <div className="mt-7 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <section
-          aria-labelledby="patient-list-title"
-          className="rounded-2xl border border-line bg-white p-6 sm:p-7"
-        >
-          <div className="mb-5 flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
-              <CircleUserRound aria-hidden="true" size={21} />
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Care team workspace
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-navy" id="patient-list-title">
-                Patient list
-              </h2>
-            </div>
-          </div>
-          <ul className="divide-y divide-line">
-            {patients.map((patient) => {
-              const patientLatestCheckIn = checkIns.find(
-                (checkIn) => checkIn.patient_id === patient.id,
-              )
-              const isSelected = patient.id === selectedPatientId
+      <section
+        aria-label="Dashboard overview metrics"
+        className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+      >
+        {metrics.map((metric) => (
+          <DashboardMetricCard key={metric.label} {...metric} />
+        ))}
+      </section>
 
-              return (
-                <li className="py-2 first:pt-0 last:pb-0" key={patient.id}>
-                  <button
-                    aria-pressed={isSelected}
-                    className={`flex min-h-16 w-full flex-wrap items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
-                      isSelected ? 'bg-teal-light/70' : 'hover:bg-canvas'
-                    }`}
-                    onClick={() => selectPatient(patient.id)}
-                    type="button"
-                  >
-                    <span>
-                      <span className="block font-semibold text-navy">
-                        {patient.displayName}
-                      </span>
-                      <span className="mt-1 block text-sm text-muted">{patient.id}</span>
-                    </span>
-                    <span className="text-left sm:text-right">
-                      <span className="block text-sm font-medium text-navy">
-                        {patientLatestCheckIn ? 'Check-in recorded' : 'No check-ins yet'}
-                      </span>
-                      <span className="mt-1 block text-xs text-muted">
-                        {patientLatestCheckIn
-                          ? new Date(patientLatestCheckIn.submitted_at).toLocaleString()
-                          : 'Demo profile'}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-          <p className="mt-5 text-xs leading-5 text-muted">
-            Select a profile to review its in-memory demo data.
-          </p>
-        </section>
-
-        <section
-          aria-labelledby="recovery-overview-title"
-          className="rounded-2xl border border-line bg-white p-6 sm:p-7"
-        >
-          <div className="mb-5 flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
-              <ClipboardList aria-hidden="true" size={21} />
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                {selectedPatient?.displayName ?? 'No patient selected'}
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-navy" id="recovery-overview-title">
-                Recovery overview
-              </h2>
-            </div>
-          </div>
-          <dl className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-canvas p-4">
-              <dt className="text-sm leading-5 text-muted">Plan fields specified</dt>
-              <dd className="mt-3 text-xl font-semibold tracking-tight text-navy">
-                {planFieldsSpecified} of {PLAN_FIELDS.length}
-              </dd>
-            </div>
-            <div className="rounded-xl bg-canvas p-4">
-              <dt className="text-sm leading-5 text-muted">Check-ins in history</dt>
-              <dd className="mt-3 text-xl font-semibold tracking-tight text-navy">
-                {patientCheckIns.length}
-              </dd>
-            </div>
-            <div className="rounded-xl bg-canvas p-4">
-              <dt className="text-sm leading-5 text-muted">Data source</dt>
-              <dd className="mt-3 text-xl font-semibold tracking-tight text-navy">
-                Demo only
-              </dd>
-            </div>
-          </dl>
-          <p className="mt-5 text-sm leading-6 text-muted">
-            {recoveryPlan?.source ?? 'No recovery-plan fixture is available.'}
-            {' - '}Missing plan details are shown as not specified in the Patient Portal.
-          </p>
-        </section>
+      <div className="mt-6 grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+        <PatientList />
+        <PatientOverview />
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <section
-          aria-labelledby="latest-checkin-title"
-          className="rounded-2xl border border-line bg-white p-6 sm:p-7"
-        >
-          <div className="mb-5 flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
-              <CalendarCheck2 aria-hidden="true" size={21} />
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                {selectedPatient?.displayName ?? 'Patient not selected'}
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-navy" id="latest-checkin-title">
-                Latest check-in
-              </h2>
-            </div>
-          </div>
-          {latestCheckIn ? (
-            <div className="rounded-xl border border-line bg-canvas p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <span className="inline-flex items-center gap-2 text-sm font-semibold text-teal-dark">
-                  <Activity aria-hidden="true" size={17} />
-                  Synthetic check-in
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-sm text-muted">
-                  <Clock3 aria-hidden="true" size={15} />
-                  {new Date(latestCheckIn.submitted_at).toLocaleString()}
-                </span>
-              </div>
-              <p className="mt-4 whitespace-pre-wrap break-words leading-7 text-navy">
-                {latestCheckIn.reported_symptoms}
-              </p>
-              <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-                <div>
-                  <dt className="text-xs text-muted">Pain score</dt>
-                  <dd className="mt-1 font-medium text-navy">
-                    {latestCheckIn.pain_score ?? 'Not provided'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted">Medication taken</dt>
-                  <dd className="mt-1 font-medium text-navy">
-                    {latestCheckIn.medication_taken ? 'Yes' : 'No'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted">Temperature</dt>
-                  <dd className="mt-1 font-medium text-navy">
-                    {latestCheckIn.temperature_c === null
-                      ? 'Not provided'
-                      : `${latestCheckIn.temperature_c} °C`}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          ) : (
-            <EmptyState
-              description="A patient's submitted demo check-in will appear here."
-              title="No check-in received"
-            />
-          )}
-        </section>
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+        <PatientSummary />
+        <PatientHistory />
+      </div>
 
-        <section
-          aria-labelledby="patient-summary-title"
-          className="rounded-2xl border border-line bg-white p-6 sm:p-7"
-        >
-          <div className="mb-5 flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
-              <FileText aria-hidden="true" size={21} />
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                {selectedPatient?.id ?? 'Synthetic profile'}
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-navy" id="patient-summary-title">
-                Patient summary
-              </h2>
-            </div>
-          </div>
-          <p className="rounded-xl bg-canvas p-5 leading-7 text-muted">
-            {selectedPatient
-              ? `${selectedPatient.displayName} is a synthetic demo profile with ${patientCheckIns.length} check-in${patientCheckIns.length === 1 ? '' : 's'} in the shared history. No medical interpretation is generated.`
-              : 'Select a synthetic patient profile to view its summary.'}
+      <div className="mt-6">
+        <RecoveryTrendChart />
+      </div>
+
+      <section
+        aria-labelledby="demo-alerts-title"
+        className="mt-6 rounded-2xl border border-line bg-white p-6 sm:p-7"
+      >
+        <div className="mb-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Static synthetic fixtures - no clinical rules run
           </p>
-        </section>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <section
-          aria-labelledby="trend-title"
-          className="rounded-2xl border border-line bg-white p-6 sm:p-7"
-        >
-          <div className="mb-5 flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
-              <Activity aria-hidden="true" size={21} />
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                {selectedPatient?.displayName ?? 'Synthetic demo'}
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-navy" id="trend-title">
-                Recovery trend
-              </h2>
-            </div>
+          <h2 className="mt-1 text-lg font-semibold text-navy" id="demo-alerts-title">
+            Explainable demo alerts
+          </h2>
+        </div>
+        <AlertEvaluationState evaluation={selectedEvaluation} />
+        {selectedEvaluation.alerts.length > 0 ? (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {selectedEvaluation.alerts.map((alert, index) => (
+              <AlertCard
+                alert={alert}
+                key={alert.alert_id ?? `${alert.alert_type ?? 'alert'}-${index}`}
+              />
+            ))}
           </div>
-          {patientCheckIns.length === 0 ? (
-            <EmptyState
-              description="The chart will show daily check-in activity after a demo check-in is submitted."
-              title="No trend data yet"
-            />
-          ) : (
-            <>
-              <figure>
-                <figcaption className="mb-3 text-sm text-muted">
-                  Daily check-in activity - synthetic demo data
-                </figcaption>
-                <div
-                  aria-label="Line chart showing daily check-in activity over one sample week"
-                  className="h-64 w-full"
-                  role="img"
-                >
-                  <ResponsiveContainer height="100%" width="100%">
-                    <LineChart
-                      accessibilityLayer
-                      data={weeklyTrend}
-                      margin={{ top: 8, right: 12, bottom: 4, left: -18 }}
-                    >
-                      <CartesianGrid stroke="#dce5e2" strokeDasharray="4 4" />
-                      <XAxis
-                        axisLine={false}
-                        dataKey="day"
-                        tick={{ fill: '#526571', fontSize: 12 }}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        axisLine={false}
-                        domain={[0, 1]}
-                        ticks={[0, 1]}
-                        tick={{ fill: '#526571', fontSize: 12 }}
-                        tickFormatter={(value) => (value === 1 ? 'Logged' : 'None')}
-                        tickLine={false}
-                      />
-                      <Tooltip
-                        formatter={(value) => [value === 1 ? 'Logged' : 'None', 'Check-in']}
-                        labelFormatter={(label) => `${label} (sample)`}
-                      />
-                      <Line
-                        activeDot={{ r: 5 }}
-                        dataKey="logged"
-                        dot={{ fill: '#0f766e', r: 4 }}
-                        name="Check-in"
-                        stroke="#0f766e"
-                        strokeWidth={3}
-                        type="monotone"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </figure>
-              <p className="mt-3 text-xs leading-5 text-muted">
-                This chart shows only whether a synthetic check-in was submitted;
-                it does not represent a health outcome.
-              </p>
-            </>
-          )}
-        </section>
-
-        <section
-          aria-labelledby="alerts-title"
-          className="rounded-2xl border border-line bg-white p-6 sm:p-7"
-        >
-          <div className="mb-5 flex items-center gap-3">
-            <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
-              <AlertCircle aria-hidden="true" size={21} />
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Demo data boundary
-              </p>
-              <h2 className="mt-1 text-lg font-semibold text-navy" id="alerts-title">
-                Explainable alerts
-              </h2>
-            </div>
-          </div>
-          <EmptyState
-            description="This frontend does not generate clinical or AI alerts. Submitted check-ins are displayed as entered, without medical interpretation."
-            title="Clinical alerting is not active"
-          />
-        </section>
-      </div>
+        ) : null}
+      </section>
     </div>
   )
 }
