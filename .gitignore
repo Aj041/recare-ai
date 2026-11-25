@@ -1,7 +1,57 @@
-﻿backend/venv/
-backend/__pycache__/
-backend/*.db
+﻿# Environment variables and secrets
 .env
 .env.*
 !.env.example
+
+# Python environments
+venv/
+.venv/
+env/
+backend/venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build files
+build/
+dist/
+*.egg-info/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Node dependencies
+node_modules/
+
+# Frontend builds
+frontend/build/
+frontend/dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary files
+*.tmp
+*.bak
+
+# Local project files
 Sample Discharge Summary.pdf
