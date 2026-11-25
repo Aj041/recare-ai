@@ -15,7 +15,7 @@ function PatientPortal() {
         description={
           dataMode === 'demo'
             ? 'Manage synthetic patient profiles, view a sample recovery plan, and submit demo check-ins.'
-            : 'Register live backend patients, review stored history, and upload discharge PDFs for text extraction.'
+            : 'Register live backend patients, review stored history, and upload discharge PDFs to save a structured recovery plan.'
         }
         eyebrow="RE:CARE AI - Patient Portal"
         title="Your recovery space"
@@ -43,7 +43,7 @@ function PatientPortal() {
       <p className="mt-6 text-sm leading-6 text-muted">
         {dataMode === 'demo'
           ? 'Demo only: profile and check-in data stay in browser memory. No PDF is uploaded or analyzed, and this experience does not provide medical advice.'
-          : 'Live patient records and PDF extraction requests are sent to the configured backend. Recovery-plan interpretation and live check-ins are unavailable until their contracts are confirmed.'}
+          : 'Live patient records, discharge documents, and saved recovery plans are managed by the backend. Live check-in submission remains unavailable in this portal.'}
       </p>
     </div>
   )

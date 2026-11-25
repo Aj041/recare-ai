@@ -1,13 +1,26 @@
 import { ClipboardList } from 'lucide-react'
 import EmptyState from './EmptyState.jsx'
+import ErrorState from './ErrorState.jsx'
+import LoadingState from './LoadingState.jsx'
 import RecoveryPlanDetails from './RecoveryPlanDetails.jsx'
 import { usePatientData } from '../context/usePatientData.js'
 
 function RecoveryPlan() {
-  const { dataMode, selectedPatient, recoveryPlans } = usePatientData()
+  const {
+    dataMode,
+    selectedPatient,
+    recoveryPlans,
+    recoveryPlanStatus,
+    recoveryPlanError,
+    refreshLatestCarePlan,
+  } = usePatientData()
   const plan = selectedPatient
     ? recoveryPlans[selectedPatient.id]
     : null
+  const isLoading =
+    dataMode === 'live' &&
+    selectedPatient &&
+    ['idle', 'loading'].includes(recoveryPlanStatus)
 
   return (
     <section
@@ -28,26 +41,58 @@ function RecoveryPlan() {
         </div>
       </div>
 
-      {!plan ? (
+      {!selectedPatient ? (
+        <EmptyState
+          description="Select a patient to view their recovery plan."
+          title="No patient selected"
+        />
+      ) : isLoading ? (
+        <LoadingState message="Loading this patient's latest saved recovery plan..." />
+      ) : recoveryPlanStatus === 'error' && !plan ? (
+        <div className="space-y-3">
+          <ErrorState
+            description={recoveryPlanError}
+            title="Recovery plan unavailable"
+          />
+          <button
+            className="min-h-10 rounded-full border border-line px-4 text-sm font-semibold text-navy hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+            onClick={() => refreshLatestCarePlan(selectedPatient.id)}
+            type="button"
+          >
+            Retry recovery plan
+          </button>
+        </div>
+      ) : !plan ? (
         <EmptyState
           description={
             dataMode === 'demo'
-              ? 'Select a demo patient to view the associated recovery-plan fixture.'
-              : selectedPatient
-                ? 'The verified backend does not provide a recovery-plan retrieval endpoint. PDF text extraction is not an AI-generated plan.'
-                : 'Select a live patient. No live recovery plan is available from the current backend contract.'
+              ? 'No recovery-plan fixture is associated with this demo patient.'
+              : 'No saved recovery plan was found for this patient. Upload a discharge PDF to create one.'
           }
-          title={
-            selectedPatient && dataMode === 'live'
-              ? 'Live recovery plan unavailable'
-              : 'No patient selected'
-          }
+          title="No recovery plan yet"
         />
       ) : (
         <>
+          {recoveryPlanStatus === 'error' ? (
+            <div className="mb-4 space-y-3">
+              <ErrorState
+                description={recoveryPlanError}
+                title="Could not refresh the saved plan"
+              />
+              <button
+                className="min-h-10 rounded-full border border-line px-4 text-sm font-semibold text-navy hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                onClick={() => refreshLatestCarePlan(selectedPatient.id)}
+                type="button"
+              >
+                Retry recovery plan
+              </button>
+            </div>
+          ) : null}
           <p className="mb-4 rounded-lg bg-teal-light px-4 py-3 text-sm font-medium text-teal-dark">
-            Synthetic demo fixture. This content is not generated from or
-            analyzed from a PDF. Missing clinical details are not filled in.
+            {dataMode === 'demo'
+              ? 'Synthetic demo fixture. This content is not generated from or analyzed from a PDF.'
+              : 'Structured information interpreted from this patient’s saved discharge document. It is not a diagnosis or prescription.'}
+            {' '}Missing clinical details are not filled in.
           </p>
           <RecoveryPlanDetails plan={plan} />
         </>

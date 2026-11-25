@@ -12,6 +12,7 @@ import {
   normalizeBackendPatient,
   normalizeBackendPatientList,
 } from '../utils/backendDataAdapters.js'
+import { normalizeRecoveryPlan } from '../utils/aiOutputAdapters.js'
 import PatientDataContext from './patientDataContext.js'
 
 const initialCheckInCounts = mockData.initialCheckIns.reduce(
@@ -44,11 +45,17 @@ function PatientDataProvider({ children }) {
   const [liveCheckIns, setLiveCheckIns] = useState([])
   const [liveHistoryStatus, setLiveHistoryStatus] = useState('idle')
   const [liveHistoryError, setLiveHistoryError] = useState('')
+  const [liveRecoveryPlans, setLiveRecoveryPlans] = useState(EMPTY_RECORD)
+  const [liveRecoveryPlanStatuses, setLiveRecoveryPlanStatuses] =
+    useState(EMPTY_RECORD)
+  const [liveRecoveryPlanErrors, setLiveRecoveryPlanErrors] =
+    useState(EMPTY_RECORD)
   const [pdfUploadsByPatientId, setPdfUploadsByPatientId] = useState({})
   const checkInSequence = useRef(0)
   const isCreatingPatient = useRef(false)
   const patientListRequest = useRef(null)
   const historyRequest = useRef(null)
+  const latestCarePlanRequest = useRef(null)
   const selectedLivePatientIdRef = useRef(selectedLivePatientId)
   const dataModeRef = useRef(dataMode)
 
@@ -101,10 +108,101 @@ function PatientDataProvider({ children }) {
     }
   }, [])
 
+  const refreshLatestCarePlan = useCallback(async (patientId) => {
+    if (patientId === null || patientId === undefined) {
+      return { plan: null }
+    }
+
+    latestCarePlanRequest.current?.controller.abort()
+    const controller = new AbortController()
+    const request = { controller, patientId }
+    latestCarePlanRequest.current = request
+    setLiveRecoveryPlanStatuses((current) => ({
+      ...current,
+      [patientId]: 'loading',
+    }))
+    setLiveRecoveryPlanErrors((current) => ({ ...current, [patientId]: '' }))
+
+    const requestIsCurrent = () =>
+      latestCarePlanRequest.current === request &&
+      dataModeRef.current === 'live' &&
+      selectedLivePatientIdRef.current === patientId &&
+      !controller.signal.aborted
+
+    try {
+      const response = await apiService.getLatestCarePlan(patientId, {
+        signal: controller.signal,
+      })
+
+      if (!requestIsCurrent()) {
+        return { cancelled: true }
+      }
+
+      if (response === null) {
+        setLiveRecoveryPlans((current) => {
+          const next = { ...current }
+          delete next[patientId]
+          return next
+        })
+        setLiveRecoveryPlanStatuses((current) => ({
+          ...current,
+          [patientId]: 'empty',
+        }))
+        return { plan: null }
+      }
+
+      if (
+        response?.patient_id !== undefined &&
+        String(response.patient_id) !== String(patientId)
+      ) {
+        throw new Error('The latest care plan belongs to a different patient.')
+      }
+
+      const plan = normalizeRecoveryPlan(response)
+      if (!plan) {
+        throw new Error('The latest care plan response did not contain a structured plan.')
+      }
+
+      setLiveRecoveryPlans((current) => ({ ...current, [patientId]: plan }))
+      setLiveRecoveryPlanStatuses((current) => ({
+        ...current,
+        [patientId]: 'success',
+      }))
+      return { plan }
+    } catch (error) {
+      if (
+        controller.signal.aborted ||
+        error?.kind === 'aborted' ||
+        !requestIsCurrent()
+      ) {
+        return { cancelled: true }
+      }
+
+      const message = getErrorMessage(
+        error,
+        'The latest recovery plan could not be loaded.',
+      )
+      setLiveRecoveryPlanErrors((current) => ({
+        ...current,
+        [patientId]: message,
+      }))
+      setLiveRecoveryPlanStatuses((current) => ({
+        ...current,
+        [patientId]: 'error',
+      }))
+      return { error: message }
+    } finally {
+      if (latestCarePlanRequest.current === request) {
+        latestCarePlanRequest.current = null
+      }
+    }
+  }, [])
+
   useEffect(() => {
     if (dataMode !== 'live') {
       patientListRequest.current?.abort()
       historyRequest.current?.abort()
+      latestCarePlanRequest.current?.controller.abort()
       return undefined
     }
 
@@ -118,8 +216,30 @@ function PatientDataProvider({ children }) {
       cancelled = true
       patientListRequest.current?.abort()
       historyRequest.current?.abort()
+      latestCarePlanRequest.current?.controller.abort()
     }
   }, [dataMode, refreshLivePatients])
+
+  useEffect(() => {
+    if (dataMode !== 'live' || selectedLivePatientId === null) {
+      latestCarePlanRequest.current?.controller.abort()
+      return undefined
+    }
+
+    const requestedPatientId = selectedLivePatientId
+    let cancelled = false
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        refreshLatestCarePlan(requestedPatientId)
+      }
+    })
+    return () => {
+      cancelled = true
+      if (latestCarePlanRequest.current?.patientId === requestedPatientId) {
+        latestCarePlanRequest.current.controller.abort()
+      }
+    }
+  }, [dataMode, selectedLivePatientId, refreshLatestCarePlan])
 
   useEffect(() => {
     if (dataMode !== 'live') {
@@ -199,7 +319,19 @@ function PatientDataProvider({ children }) {
     patients.find((patient) => patient.id === selectedPatientId) ?? null
   const checkIns = dataMode === 'demo' ? demoCheckIns : liveCheckIns
   const activeRecoveryPlans =
-    dataMode === 'demo' ? recoveryPlans : EMPTY_RECORD
+    dataMode === 'demo' ? recoveryPlans : liveRecoveryPlans
+  const recoveryPlanStatus =
+    dataMode === 'demo'
+      ? selectedPatient
+        ? 'success'
+        : 'empty'
+      : selectedPatientId === null
+        ? 'idle'
+        : liveRecoveryPlanStatuses[selectedPatientId] ?? 'idle'
+  const recoveryPlanError =
+    dataMode === 'live' && selectedPatientId !== null
+      ? liveRecoveryPlanErrors[selectedPatientId] ?? ''
+      : ''
   const alertEvaluations =
     dataMode === 'demo' ? mockData.alertEvaluationsByPatientId : EMPTY_RECORD
   const patientSummaries =
@@ -362,6 +494,31 @@ function PatientDataProvider({ children }) {
     }))
   }, [])
 
+  const rememberLiveRecoveryPlan = useCallback((patientId, planData) => {
+    if (
+      dataModeRef.current !== 'live' ||
+      selectedLivePatientIdRef.current !== patientId
+    ) {
+      return { error: 'The selected patient changed before the plan was saved.' }
+    }
+
+    const plan = normalizeRecoveryPlan(planData)
+    if (!plan) {
+      return { error: 'The upload response did not contain a structured recovery plan.' }
+    }
+
+    if (latestCarePlanRequest.current?.patientId === patientId) {
+      latestCarePlanRequest.current.controller.abort()
+    }
+    setLiveRecoveryPlans((current) => ({ ...current, [patientId]: plan }))
+    setLiveRecoveryPlanStatuses((current) => ({
+      ...current,
+      [patientId]: 'success',
+    }))
+    setLiveRecoveryPlanErrors((current) => ({ ...current, [patientId]: '' }))
+    return { plan }
+  }, [])
+
   const hasPatientHistoryChanged = useCallback(
     (patientId) =>
       dataMode === 'demo' &&
@@ -378,6 +535,8 @@ function PatientDataProvider({ children }) {
       selectedPatientId,
       selectedPatient,
       recoveryPlans: activeRecoveryPlans,
+      recoveryPlanStatus,
+      recoveryPlanError,
       checkIns,
       alertEvaluations,
       patientSummaries,
@@ -387,7 +546,9 @@ function PatientDataProvider({ children }) {
       patientHistoryError,
       pdfUploadsByPatientId,
       refreshLivePatients,
+      refreshLatestCarePlan,
       rememberPdfUpload,
+      rememberLiveRecoveryPlan,
       createPatient,
       selectPatient,
       addCheckIn,
@@ -399,6 +560,8 @@ function PatientDataProvider({ children }) {
       selectedPatientId,
       selectedPatient,
       activeRecoveryPlans,
+      recoveryPlanStatus,
+      recoveryPlanError,
       checkIns,
       alertEvaluations,
       patientSummaries,
@@ -408,7 +571,9 @@ function PatientDataProvider({ children }) {
       patientHistoryError,
       pdfUploadsByPatientId,
       refreshLivePatients,
+      refreshLatestCarePlan,
       rememberPdfUpload,
+      rememberLiveRecoveryPlan,
       createPatient,
       selectPatient,
       addCheckIn,

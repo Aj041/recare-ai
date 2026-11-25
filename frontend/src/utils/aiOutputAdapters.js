@@ -78,6 +78,26 @@ export function normalizeRecoveryPlan(value) {
     return null
   }
 
+  // Upload responses expose `interpretation`; persisted latest-plan responses
+  // wrap the same plan in `structured_plan`. Summary responses use `discharge`.
+  const wrappedPlan = ['structured_plan', 'interpretation', 'discharge'].find(
+    (key) => isRecord(value[key]),
+  )
+  if (wrappedPlan) {
+    return normalizeRecoveryPlan(value[wrappedPlan])
+  }
+
+  const hasPlanFields = [
+    'medications',
+    'recovery_instructions',
+    'warning_signs',
+    'follow_up',
+    'missing_information',
+  ].some((key) => Object.hasOwn(value, key))
+  if (!hasPlanFields) {
+    return null
+  }
+
   return {
     source: typeof value.source === 'string' ? value.source : null,
     medications: Array.isArray(value.medications)

@@ -189,6 +189,19 @@ export const apiService = Object.freeze({
       body: formData,
     })
   },
+  getLatestCarePlan: async (patientId, options = {}) => {
+    try {
+      return await requestJson(
+        `/api/patients/${encodeURIComponent(patientId)}/careplan/latest`,
+        options,
+      )
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return null
+      }
+      throw error
+    }
+  },
   getRecoveryPlan: () => unavailable('Recovery plan retrieval'),
   submitCheckIn: () => unavailable('Check-in submission'),
   getPatientHistory: (patientId, options = {}) =>

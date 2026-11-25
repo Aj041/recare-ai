@@ -40,6 +40,7 @@ function PDFUpload() {
     selectedPatient,
     pdfUploadsByPatientId,
     rememberPdfUpload,
+    rememberLiveRecoveryPlan,
   } = usePatientData()
   const [selectedFile, setSelectedFile] = useState(null)
   const [formData, setFormData] = useState(null)
@@ -67,8 +68,10 @@ function PDFUpload() {
   }, [])
 
   function handleFile(file) {
-    uploadController.current?.abort()
-    isUploading.current = false
+    if (isUploading.current) {
+      return
+    }
+
     if (prepareTimer.current !== null) {
       window.clearTimeout(prepareTimer.current)
       prepareTimer.current = null
@@ -121,6 +124,10 @@ function PDFUpload() {
     event.preventDefault()
     setIsDragging(false)
 
+    if (isUploading.current) {
+      return
+    }
+
     const files = Array.from(event.dataTransfer.files)
     if (files.length > 1) {
       if (prepareTimer.current !== null) {
@@ -140,7 +147,10 @@ function PDFUpload() {
   }
 
   function removeFile() {
-    uploadController.current?.abort()
+    if (isUploading.current) {
+      return
+    }
+
     if (prepareTimer.current !== null) {
       window.clearTimeout(prepareTimer.current)
       prepareTimer.current = null
@@ -182,15 +192,30 @@ function PDFUpload() {
         return
       }
 
-      if (typeof response?.extracted_text !== 'string') {
+      if (!response?.interpretation || typeof response.interpretation !== 'object') {
         throw new Error(
-          'The PDF endpoint did not return the verified extracted_text field.',
+          'The PDF endpoint did not return a structured discharge interpretation.',
         )
+      }
+
+      if (
+        response.patient_id !== undefined &&
+        String(response.patient_id) !== String(patientId)
+      ) {
+        throw new Error('The uploaded care plan belongs to a different patient.')
+      }
+
+      const planResult = rememberLiveRecoveryPlan(
+        patientId,
+        response.interpretation,
+      )
+      if (planResult.error) {
+        throw new Error(planResult.error)
       }
 
       const savedResult = {
         care_plan_id: response.care_plan_id ?? null,
-        extracted_text: response.extracted_text,
+        interpretation: response.interpretation,
       }
       rememberPdfUpload(patientId, savedResult)
       setUploadResponse(savedResult)
@@ -249,6 +274,7 @@ function PDFUpload() {
         <input
           accept=".pdf,application/pdf"
           className="peer sr-only"
+          disabled={uploadStatus === 'loading'}
           id="discharge-pdf"
           onChange={handleFileSelection}
           ref={inputRef}
@@ -297,6 +323,7 @@ function PDFUpload() {
               <button
                 aria-label={`Remove ${selectedFile.name}`}
                 className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-navy hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                disabled={uploadStatus === 'loading'}
                 onClick={removeFile}
                 type="button"
               >
@@ -313,8 +340,8 @@ function PDFUpload() {
               <div className="mt-3 space-y-3">
                 <p className="text-sm leading-6 text-teal-dark">
                   Upload is associated with {selectedPatient?.displayName ?? 'no selected patient'}.
-                  The backend currently extracts text only; AI interpretation
-                  is unavailable.
+                  The backend extracts and interprets the discharge document,
+                  then saves the structured plan for this patient.
                 </p>
                 <button
                   className="min-h-11 rounded-full bg-teal px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-dark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal disabled:cursor-wait disabled:opacity-70"
@@ -324,7 +351,7 @@ function PDFUpload() {
                 >
                   {uploadStatus === 'loading'
                     ? 'Uploading PDF...'
-                    : 'Upload PDF and extract text'}
+                    : 'Upload and interpret discharge PDF'}
                 </button>
                 {!selectedPatient ? (
                   <p className="text-sm text-muted">
@@ -344,21 +371,16 @@ function PDFUpload() {
                     role="status"
                   >
                     <p className="font-semibold text-navy">
-                      PDF text extraction succeeded
+                      Discharge document saved and interpreted
                     </p>
                     <p className="mt-1 text-sm text-muted">
                       Care plan record ID:{' '}
                       {uploadResponse.care_plan_id ?? 'Not returned'}.
-                      Structured AI interpretation was not returned.
                     </p>
-                    <details className="mt-3">
-                      <summary className="cursor-pointer font-medium text-teal-dark">
-                        View extracted text
-                      </summary>
-                      <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-canvas p-3 text-xs leading-5 text-navy">
-                        {uploadResponse.extracted_text || 'No text returned.'}
-                      </pre>
-                    </details>
+                    <p className="mt-2 text-sm text-muted">
+                      The structured plan is displayed below and will be
+                      restored from the backend when this patient is selected.
+                    </p>
                   </div>
                 ) : null}
               </div>
@@ -370,13 +392,13 @@ function PDFUpload() {
       <p className="mt-4 text-xs leading-5 text-muted">
         {dataMode === 'demo'
           ? 'The file stays in this browser session. AI analysis and backend upload are not connected.'
-          : 'Live uploads send the selected file and database patient ID. Extracted text is not an AI-generated recovery plan.'}
+          : 'Live uploads send the selected file and database patient ID. Displayed details come from the saved discharge interpretation and are not a diagnosis or prescription.'}
       </p>
       {savedUpload && uploadResponse === null ? (
         <p className="mt-3 rounded-lg bg-canvas px-4 py-3 text-sm text-muted">
-          Previously uploaded for this patient — care plan record ID:{' '}
+          Uploaded during this session — care plan record ID:{' '}
           {savedUpload.care_plan_id ?? 'Not returned'}. AI interpretation is
-          unavailable.
+          available in the recovery plan above.
         </p>
       ) : null}
     </section>
