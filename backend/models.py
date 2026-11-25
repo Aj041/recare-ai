@@ -1,5 +1,5 @@
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Boolean, Column, Float, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -42,6 +42,9 @@ class CheckIn(Base):
     patient_id = Column(Integer, ForeignKey("patients.id"))
     pain_level = Column(Integer)
     temperature = Column(String(20))
+    temperature_c = Column(Float)
+    medication_taken = Column(Boolean)
+    reported_symptoms = Column(Text)
     symptoms = Column(Text)
     mood = Column(String(50))
     notes = Column(Text)
@@ -58,6 +61,8 @@ class Alert(Base):
     patient_id = Column(Integer, ForeignKey("patients.id"))
     severity = Column(String(30))
     message = Column(Text)
+    rule_triggered = Column(String(100))
+    supporting_check_ins = Column(Text)
     status = Column(String(30), default="active")
     created_at = Column(DateTime, default=datetime.utcnow)
 

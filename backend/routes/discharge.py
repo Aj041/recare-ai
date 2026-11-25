@@ -1,10 +1,12 @@
+import json
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
 from sqlalchemy.orm import Session
-import fitz
 
 from database import get_db
 from models import Patient, CarePlan
+from services.pdf_service import extract_text_from_pdf, PDFExtractionError
+from services.ai_service import interpret_discharge_summary, AIServiceError
 
 router = APIRouter(
     prefix="/api/discharge",
@@ -18,51 +20,42 @@ async def upload_discharge_pdf(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
-    # Check file extension
     if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(
-            status_code=400,
-            detail="Only PDF files are allowed"
-        )
+        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
 
-    # Check whether patient exists
-    patient = db.query(Patient).filter(
-        Patient.id == patient_id
-    ).first()
+    patient = db.query(Patient).filter(Patient.id == patient_id).first()
 
     if not patient:
-        raise HTTPException(
-            status_code=404,
-            detail="Patient not found"
-        )
+        raise HTTPException(status_code=404, detail="Patient not found")
 
     try:
         pdf_bytes = await file.read()
 
-        # Open PDF
-        document = fitz.open(
-            stream=pdf_bytes,
-            filetype="pdf"
-        )
+        if not pdf_bytes:
+            raise HTTPException(status_code=400, detail="Uploaded PDF is empty")
 
-        # Extract text
-        extracted_text = ""
-
-        for page in document:
-            extracted_text += page.get_text() + "\n"
-
-        document.close()
+        # Person 3: extract text from the PDF.
+        extracted_text = extract_text_from_pdf(pdf_bytes)
 
         if not extracted_text.strip():
             raise HTTPException(
                 status_code=400,
-                detail="No readable text found in PDF"
+                detail="No readable text found in the PDF"
             )
 
-        # Save extracted text in database
+        # Person 3: interpret the extracted discharge summary using Groq.
+        interpretation = interpret_discharge_summary(extracted_text)
+
+        # Store the extracted text and interpreted fields together.
+        plan_data = {
+            "patient_id": str(patient_id),
+            "extracted_text": extracted_text,
+            **interpretation
+        }
+
         new_care_plan = CarePlan(
             patient_id=patient_id,
-            plan_data=extracted_text
+            plan_data=json.dumps(plan_data, ensure_ascii=False)
         )
 
         db.add(new_care_plan)
@@ -70,15 +63,28 @@ async def upload_discharge_pdf(
         db.refresh(new_care_plan)
 
         return {
-            "message": "Discharge PDF processed and saved successfully",
+            "message": "Discharge PDF extracted, interpreted and saved successfully",
             "care_plan_id": new_care_plan.id,
             "patient_id": patient_id,
             "patient_name": patient.name,
-            "extracted_text": extracted_text
+            "extracted_text": extracted_text,
+            "interpretation": interpretation
         }
 
     except HTTPException:
+        db.rollback()
         raise
+
+    except PDFExtractionError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    except AIServiceError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=502,
+            detail=f"Discharge interpretation failed: {str(exc)}"
+        )
 
     except Exception:
         db.rollback()

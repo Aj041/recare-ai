@@ -1,5 +1,7 @@
 
-from fastapi import APIRouter, Depends
+import json
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -28,17 +30,37 @@ def get_alerts(
         Alert.created_at.desc()
     ).all()
 
-    return {
-        "total_alerts": len(alerts),
-        "alerts": [
+    serialized_alerts = []
+    for alert in alerts:
+        try:
+            supporting_check_ins = json.loads(
+                alert.supporting_check_ins or "[]"
+            )
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=500,
+                detail="Stored alert evidence is invalid",
+            ) from exc
+        if not isinstance(supporting_check_ins, list):
+            raise HTTPException(
+                status_code=500,
+                detail="Stored alert evidence is invalid",
+            )
+
+        serialized_alerts.append(
             {
                 "id": alert.id,
                 "patient_id": alert.patient_id,
                 "severity": alert.severity,
                 "message": alert.message,
+                "rule_triggered": alert.rule_triggered,
+                "supporting_check_ins": supporting_check_ins,
                 "status": alert.status,
-                "created_at": alert.created_at
+                "created_at": alert.created_at,
             }
-            for alert in alerts
-        ]
+        )
+
+    return {
+        "total_alerts": len(serialized_alerts),
+        "alerts": serialized_alerts,
     }

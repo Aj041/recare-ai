@@ -1,8 +1,9 @@
+from routes.careplans import router as careplans_router
 from routes.alerts import router as alerts_router
 from routes.checkins import router as checkins_router
 from routes.discharge import router as discharge_router
 from routes.patients import router as patients_router
-from database import engine, Base
+from database import initialize_database
 import models
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,13 +14,14 @@ app = FastAPI(
     description="Predictive Recovery Intelligence Backend",
     version="1.0.0"
 )
-# Create all database tables
-Base.metadata.create_all(bind=engine)
+# Create database tables and apply additive SQLite column migrations.
+initialize_database()
 # Connect patient API
 app.include_router(patients_router)
 app.include_router(discharge_router)
 app.include_router(checkins_router)
 app.include_router(alerts_router)
+app.include_router(careplans_router)
 
 # Allow communication with React frontend
 app.add_middleware(
