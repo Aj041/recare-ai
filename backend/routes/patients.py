@@ -48,6 +48,50 @@ def create_patient(
 def get_patients(db: Session = Depends(get_db)):
     return db.query(Patient).all()
 
+@router.get("/{patient_id}/careplan/latest")
+def get_latest_careplan(
+    patient_id: int,
+    db: Session = Depends(get_db),
+):
+    patient = db.query(Patient).filter(
+        Patient.id == patient_id
+    ).first()
+
+    if not patient:
+        raise HTTPException(
+            status_code=404,
+            detail="Patient not found"
+        )
+
+    care_plan = db.query(CarePlan).filter(
+        CarePlan.patient_id == patient_id
+    ).order_by(
+        CarePlan.created_at.desc(),
+        CarePlan.id.desc()
+    ).first()
+
+    if not care_plan:
+        raise HTTPException(
+            status_code=404,
+            detail="No care plan found for this patient"
+        )
+
+    try:
+        structured_plan = json.loads(care_plan.plan_data)
+    except (TypeError, json.JSONDecodeError):
+        raise HTTPException(
+            status_code=500,
+            detail="Stored care plan contains invalid structured data"
+        )
+
+    return {
+        "care_plan_id": care_plan.id,
+        "patient_id": care_plan.patient_id,
+        "structured_plan": structured_plan,
+        "created_at": care_plan.created_at
+    }
+
+
 
 @router.get("/{patient_id}/summary")
 def get_patient_summary(
