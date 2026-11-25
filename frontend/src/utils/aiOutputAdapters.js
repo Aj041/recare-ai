@@ -84,7 +84,14 @@ export function normalizeRecoveryPlan(value) {
     (key) => isRecord(value[key]),
   )
   if (wrappedPlan) {
-    return normalizeRecoveryPlan(value[wrappedPlan])
+    const plan = normalizeRecoveryPlan(value[wrappedPlan])
+    return plan
+      ? {
+          ...plan,
+          care_plan_id: value.care_plan_id ?? plan.care_plan_id ?? null,
+          patient_id: value.patient_id ?? plan.patient_id ?? null,
+        }
+      : null
   }
 
   const hasPlanFields = [
@@ -98,12 +105,64 @@ export function normalizeRecoveryPlan(value) {
     return null
   }
 
+  // Keep source instruction strings untouched; adherence item IDs are tied to
+  // their positions and the patient-facing text must match the saved plan.
+  const instructions = Array.isArray(value.recovery_instructions)
+    ? value.recovery_instructions.filter((instruction) => typeof instruction === 'string')
+    : []
+  const allowedStatuses = new Set([
+    'unreported',
+    'completed',
+    'not_completed',
+    'need_help',
+    'not_applicable',
+  ])
+  const storedItems = isRecord(value.adherence) && Array.isArray(value.adherence.items)
+    ? value.adherence.items
+    : []
+  const storedById = new Map(
+    storedItems
+      .filter((item) => isRecord(item) && typeof item.item_id === 'string')
+      .map((item) => [item.item_id, item]),
+  )
+  const adherence = {
+    schema_version: 1,
+    items: instructions.map((instruction, sourceIndex) => {
+      const itemId = `instruction_${sourceIndex}`
+      const stored = storedById.get(itemId)
+      const matchesSource =
+        isRecord(stored) &&
+        stored.source_index === sourceIndex &&
+        stored.instruction === instruction
+      const status = matchesSource && allowedStatuses.has(stored.status)
+        ? stored.status
+        : 'unreported'
+      return {
+        item_id: itemId,
+        source_index: sourceIndex,
+        instruction,
+        status,
+        reported_at:
+          status !== 'unreported' && typeof stored?.reported_at === 'string'
+            ? stored.reported_at
+            : null,
+        patient_note:
+          matchesSource && typeof stored.patient_note === 'string'
+            ? stored.patient_note
+            : null,
+      }
+    }),
+  }
+
   return {
     source: typeof value.source === 'string' ? value.source : null,
+    care_plan_id: value.care_plan_id ?? null,
+    patient_id: value.patient_id ?? null,
     medications: Array.isArray(value.medications)
       ? value.medications.map(normalizeMedication)
       : [],
-    recovery_instructions: normalizeTextList(value.recovery_instructions),
+    recovery_instructions: instructions,
+    adherence,
     warning_signs: normalizeWarningSigns(value.warning_signs),
     follow_up:
       typeof value.follow_up === 'string'

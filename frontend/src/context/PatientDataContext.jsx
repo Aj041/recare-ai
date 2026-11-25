@@ -177,7 +177,7 @@ function PatientDataProvider({ children }) {
       !controller.signal.aborted
 
     try {
-      const response = await apiService.getLatestCarePlan(patientId, {
+      const response = await apiService.getLatestCarePlanAdherence(patientId, {
         signal: controller.signal,
       })
 
@@ -538,6 +538,9 @@ function PatientDataProvider({ children }) {
     if (!plan) {
       return { error: 'The upload response did not contain a structured recovery plan.' }
     }
+    if (!plan.care_plan_id) {
+      return { error: 'The saved recovery plan response did not include its care plan ID.' }
+    }
 
     if (latestCarePlanRequest.current?.patientId === patientId) {
       latestCarePlanRequest.current.controller.abort()
@@ -550,6 +553,50 @@ function PatientDataProvider({ children }) {
     setLiveRecoveryPlanErrors((current) => ({ ...current, [patientId]: '' }))
     return { plan }
   }, [])
+
+  const updateRecoveryPlanAdherence = useCallback(
+    async (patientId, itemId, payload) => {
+      if (
+        dataModeRef.current !== 'live' ||
+        selectedLivePatientIdRef.current !== patientId
+      ) {
+        throw new Error('Select this patient in live mode before reporting adherence.')
+      }
+
+      const currentPlan = liveRecoveryPlans[patientId]
+      if (!currentPlan?.care_plan_id) {
+        throw new Error('The saved recovery plan is not available for updating.')
+      }
+
+      const response = await apiService.updateCarePlanAdherence(
+        patientId,
+        currentPlan.care_plan_id,
+        itemId,
+        payload,
+      )
+      if (
+        response?.patient_id === undefined ||
+        String(response.patient_id) !== String(patientId) ||
+        String(response.care_plan_id) !== String(currentPlan.care_plan_id)
+      ) {
+        throw new Error('The adherence response belongs to a different care plan.')
+      }
+
+      const plan = normalizeRecoveryPlan(response)
+      if (!plan) {
+        throw new Error('The saved response did not contain a structured recovery plan.')
+      }
+
+      if (
+        dataModeRef.current === 'live' &&
+        selectedLivePatientIdRef.current === patientId
+      ) {
+        setLiveRecoveryPlans((current) => ({ ...current, [patientId]: plan }))
+      }
+      return { plan }
+    },
+    [liveRecoveryPlans],
+  )
 
   const hasPatientHistoryChanged = useCallback(
     (patientId) =>
@@ -581,6 +628,7 @@ function PatientDataProvider({ children }) {
       refreshLatestCarePlan,
       rememberPdfUpload,
       rememberLiveRecoveryPlan,
+      updateRecoveryPlanAdherence,
       createPatient,
       selectPatient,
       addCheckIn,
@@ -606,6 +654,7 @@ function PatientDataProvider({ children }) {
       refreshLatestCarePlan,
       rememberPdfUpload,
       rememberLiveRecoveryPlan,
+      updateRecoveryPlanAdherence,
       createPatient,
       selectPatient,
       addCheckIn,

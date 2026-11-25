@@ -207,7 +207,7 @@ function PDFUpload() {
 
       const planResult = rememberLiveRecoveryPlan(
         patientId,
-        response.interpretation,
+        response,
       )
       if (planResult.error) {
         throw new Error(planResult.error)

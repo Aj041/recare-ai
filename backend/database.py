@@ -1,15 +1,26 @@
 
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# SQLite database file
-DATABASE_URL = "sqlite:///./recare.db"
+BACKEND_DIR = Path(__file__).resolve().parent
+load_dotenv(BACKEND_DIR / ".env")
+
+# Keep the existing backend/recare.db file as the default regardless of the
+# shell's current directory. An explicit DATABASE_URL in .env still wins.
+DATABASE_URL = os.getenv("DATABASE_URL") or f"sqlite:///{(BACKEND_DIR / 'recare.db').as_posix()}"
+if DATABASE_URL.startswith("sqlite:///") and not DATABASE_URL.startswith("sqlite:////"):
+    configured_path = Path(DATABASE_URL.removeprefix("sqlite:///"))
+    if not configured_path.is_absolute():
+        configured_path = BACKEND_DIR / configured_path
+    DATABASE_URL = f"sqlite:///{configured_path.resolve().as_posix()}"
 
 # Create database engine
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False}
-)
+engine_options = {"connect_args": {"check_same_thread": False}} if DATABASE_URL.startswith("sqlite:") else {}
+engine = create_engine(DATABASE_URL, **engine_options)
 
 # Create database sessions
 SessionLocal = sessionmaker(
