@@ -139,7 +139,7 @@ function PatientHistory() {
       <p className="mt-4 text-xs leading-5 text-muted">
         {dataMode === 'demo'
           ? 'Demo history is held in memory and clears when the page is reloaded.'
-          : 'Live history is retrieved from the backend. Medication-taking data is not provided by this contract.'}
+          : 'Live history is retrieved from the backend. New portal submissions leave medication-taking unset; a value is shown only when the backend returns one.'}
       </p>
     </section>
   )

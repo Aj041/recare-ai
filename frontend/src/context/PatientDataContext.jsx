@@ -108,6 +108,53 @@ function PatientDataProvider({ children }) {
     }
   }, [])
 
+  const refreshLivePatientHistory = useCallback(async (patientId) => {
+    historyRequest.current?.abort()
+    const controller = new AbortController()
+    historyRequest.current = controller
+    setLiveCheckIns([])
+    setLiveHistoryStatus('loading')
+    setLiveHistoryError('')
+
+    const requestIsCurrent = () =>
+      historyRequest.current === controller &&
+      dataModeRef.current === 'live' &&
+      selectedLivePatientIdRef.current === patientId &&
+      !controller.signal.aborted
+
+    try {
+      const response = await apiService.getPatientHistory(patientId, {
+        signal: controller.signal,
+      })
+      const result = normalizeBackendHistory(response, patientId)
+
+      if (!requestIsCurrent()) {
+        return { cancelled: true }
+      }
+
+      setLiveCheckIns(result.history)
+      setLiveHistoryStatus(result.history.length === 0 ? 'empty' : 'success')
+      return { history: result.history }
+    } catch (error) {
+      if (
+        controller.signal.aborted ||
+        error?.kind === 'aborted' ||
+        !requestIsCurrent()
+      ) {
+        return { cancelled: true }
+      }
+
+      const message = getErrorMessage(error, 'Patient history could not be loaded.')
+      setLiveHistoryError(message)
+      setLiveHistoryStatus('error')
+      return { error: message }
+    } finally {
+      if (historyRequest.current === controller) {
+        historyRequest.current = null
+      }
+    }
+  }, [])
+
   const refreshLatestCarePlan = useCallback(async (patientId) => {
     if (patientId === null || patientId === undefined) {
       return { plan: null }
@@ -261,56 +308,19 @@ function PatientDataProvider({ children }) {
       return undefined
     }
 
-    historyRequest.current?.abort()
-    const controller = new AbortController()
     const requestedPatientId = selectedLivePatientId
-    historyRequest.current = controller
-    Promise.resolve().then(async () => {
-      if (controller.signal.aborted) {
-        return
-      }
-      setLiveCheckIns([])
-      setLiveHistoryStatus('loading')
-      setLiveHistoryError('')
-
-      try {
-        const response = await apiService.getPatientHistory(
-          requestedPatientId,
-          { signal: controller.signal },
-        )
-        const result = normalizeBackendHistory(response, requestedPatientId)
-
-        if (
-          controller.signal.aborted ||
-          dataModeRef.current !== 'live' ||
-          selectedLivePatientIdRef.current !== requestedPatientId
-        ) {
-          return
-        }
-
-        setLiveCheckIns(result.history)
-        setLiveHistoryStatus(
-          result.history.length === 0 ? 'empty' : 'success',
-        )
-      } catch (error) {
-        if (
-          controller.signal.aborted ||
-          error?.kind === 'aborted' ||
-          dataModeRef.current !== 'live' ||
-          selectedLivePatientIdRef.current !== requestedPatientId
-        ) {
-          return
-        }
-
-        setLiveHistoryError(
-          getErrorMessage(error, 'Patient history could not be loaded.'),
-        )
-        setLiveHistoryStatus('error')
+    let cancelled = false
+    Promise.resolve().then(() => {
+      if (!cancelled) {
+        refreshLivePatientHistory(requestedPatientId)
       }
     })
 
-    return () => controller.abort()
-  }, [dataMode, selectedLivePatientId])
+    return () => {
+      cancelled = true
+      historyRequest.current?.abort()
+    }
+  }, [dataMode, selectedLivePatientId, refreshLivePatientHistory])
 
   const selectedPatientId =
     dataMode === 'demo' ? selectedDemoPatientId : selectedLivePatientId
@@ -463,11 +473,33 @@ function PatientDataProvider({ children }) {
   )
 
   const addCheckIn = useCallback(
-    (payload) => {
-      if (dataMode !== 'demo') {
-        throw new Error(
-          'Live check-ins are unavailable until the backend confirms how original symptom text is stored.',
-        )
+    async (payload) => {
+      if (dataMode === 'live') {
+        if (
+          !Number.isInteger(payload.patient_id) ||
+          !livePatients.some((patient) => patient.id === payload.patient_id)
+        ) {
+          throw new Error('Select an existing live patient before submitting a check-in.')
+        }
+
+        const response = await apiService.submitCheckIn(payload)
+        if (
+          response?.patient_id !== undefined &&
+          Number(response.patient_id) !== payload.patient_id
+        ) {
+          throw new Error('The saved check-in belongs to a different patient.')
+        }
+
+        let historyRefreshError = ''
+        if (
+          dataModeRef.current === 'live' &&
+          selectedLivePatientIdRef.current === payload.patient_id
+        ) {
+          const refreshResult = await refreshLivePatientHistory(payload.patient_id)
+          historyRefreshError = refreshResult.error ?? ''
+        }
+
+        return { ...response, historyRefreshError }
       }
 
       if (!demoPatients.some((patient) => patient.id === payload.patient_id)) {
@@ -484,7 +516,7 @@ function PatientDataProvider({ children }) {
       setDemoCheckIns((currentCheckIns) => [checkIn, ...currentCheckIns])
       return checkIn
     },
-    [dataMode, demoPatients],
+    [dataMode, demoPatients, livePatients, refreshLivePatientHistory],
   )
 
   const rememberPdfUpload = useCallback((patientId, upload) => {

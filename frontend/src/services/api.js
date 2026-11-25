@@ -202,8 +202,17 @@ export const apiService = Object.freeze({
       throw error
     }
   },
+  submitCheckIn: (payload, options = {}) =>
+    requestJson('/api/checkins', {
+      ...options,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      body: JSON.stringify(payload),
+    }),
   getRecoveryPlan: () => unavailable('Recovery plan retrieval'),
-  submitCheckIn: () => unavailable('Check-in submission'),
   getPatientHistory: (patientId, options = {}) =>
     requestJson(
       `/api/patients/${encodeURIComponent(patientId)}/history`,

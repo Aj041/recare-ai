@@ -143,7 +143,12 @@ function PatientSummary({ displayedAlertIds = [] }) {
                   ) : null}
                   <p className="mt-2 text-sm text-muted">
                     Pain level: {latestCheckIn.pain_score ?? 'Not provided'}
-                    {' · '}Medication taken: Not provided by backend
+                    {' · '}Medication taken:{' '}
+                    {typeof latestCheckIn.medication_taken === 'boolean'
+                      ? latestCheckIn.medication_taken
+                        ? 'Yes'
+                        : 'No'
+                      : 'Not provided'}
                     {' · '}Temperature:{' '}
                     {latestCheckIn.temperature_c === null ||
                     latestCheckIn.temperature_c === undefined

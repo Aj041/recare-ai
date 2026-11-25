@@ -24,34 +24,34 @@ function CheckInForm() {
 
     if (!selectedPatient) {
       setSubmissionState('error')
-      setFeedbackMessage('Select a demo patient before submitting a check-in.')
+      setFeedbackMessage('Select a patient before submitting a check-in.')
       return
     }
 
-    const symptoms = reportedSymptoms.trim()
+    const originalReport = reportedSymptoms
     const parsedPainScore = painScore === '' ? null : Number(painScore)
     const parsedTemperature = temperature === '' ? null : Number(temperature)
 
-    if (!symptoms) {
+    if (!originalReport.trim()) {
       setSubmissionState('error')
       setFeedbackMessage('Reported symptoms are required.')
       return
     }
 
-    if (medicationTaken === '') {
+    if (dataMode === 'demo' && medicationTaken === '') {
       setSubmissionState('error')
       setFeedbackMessage('Select Yes or No for medication taken.')
       return
     }
 
     if (
-      parsedPainScore !== null &&
-      (!Number.isInteger(parsedPainScore) ||
-        parsedPainScore < 0 ||
-        parsedPainScore > 10)
+      parsedPainScore === null ||
+      !Number.isInteger(parsedPainScore) ||
+      parsedPainScore < 0 ||
+      parsedPainScore > 10
     ) {
       setSubmissionState('error')
-      setFeedbackMessage('Pain score must be a whole number from 0 to 10.')
+      setFeedbackMessage('Select a pain level from 0 to 10 before submitting.')
       return
     }
 
@@ -61,37 +61,58 @@ function CheckInForm() {
       return
     }
 
-    const payload = {
-      patient_id: selectedPatient.id,
-      reported_symptoms: symptoms,
-      pain_score: parsedPainScore,
-      medication_taken: medicationTaken === 'yes',
-      temperature_c: parsedTemperature,
-    }
+    const payload =
+      dataMode === 'live'
+        ? {
+            patient_id: selectedPatient.id,
+            pain_level: parsedPainScore,
+            symptoms: [],
+            notes: originalReport,
+            ...(parsedTemperature === null
+              ? {}
+              : { temperature_c: parsedTemperature }),
+          }
+        : {
+            patient_id: selectedPatient.id,
+            reported_symptoms: originalReport,
+            pain_score: parsedPainScore,
+            medication_taken: medicationTaken === 'yes',
+            temperature_c: parsedTemperature,
+          }
 
     submitting.current = true
     setSubmissionState('loading')
 
     try {
-      await new Promise((resolve) => window.setTimeout(resolve, 200))
-      const savedCheckIn = addCheckIn(payload)
+      if (dataMode === 'demo') {
+        await new Promise((resolve) => window.setTimeout(resolve, 200))
+      }
+      const savedCheckIn = await addCheckIn(payload)
       setReportedSymptoms('')
       setPainScore('')
       setMedicationTaken('')
       setTemperature('')
       setSubmissionState('success')
-      setFeedbackMessage(
-        `Demo check-in saved at ${new Date(savedCheckIn.submitted_at).toLocaleTimeString([], {
-          hour: 'numeric',
-          minute: '2-digit',
-        })}. It is available in the patient history and Doctor Dashboard.`,
-      )
+      if (dataMode === 'live') {
+        setFeedbackMessage(
+          savedCheckIn.historyRefreshError
+            ? `Check-in saved. Patient history could not be refreshed: ${savedCheckIn.historyRefreshError}`
+            : 'Check-in saved and retrieved in patient history.',
+        )
+      } else {
+        setFeedbackMessage(
+          `Demo check-in saved at ${new Date(savedCheckIn.submitted_at).toLocaleTimeString([], {
+            hour: 'numeric',
+            minute: '2-digit',
+          })}. It is available in the patient history and Doctor Dashboard.`,
+        )
+      }
     } catch (error) {
       setSubmissionState('error')
       setFeedbackMessage(
         error instanceof Error
           ? error.message
-          : 'The demo check-in could not be saved.',
+          : 'The check-in could not be saved.',
       )
     } finally {
       submitting.current = false
@@ -121,31 +142,12 @@ function CheckInForm() {
         <p className="rounded-xl bg-canvas p-4 text-sm leading-6 text-muted">
           Select a {dataMode === 'demo' ? 'demo' : 'live'} patient to continue.
         </p>
-      ) : dataMode === 'live' ? (
-        <div
-          className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
-          role="status"
-        >
-          <h3 className="font-semibold">Live check-in submission is paused</h3>
-          <p className="mt-2">
-            The verified backend accepts a symptoms array and a notes string,
-            but Person 2 has not confirmed which field preserves the original
-            free-text symptom report. No request is sent until that mapping is
-            confirmed; this prevents local symptom classification or loss of
-            the patient&apos;s wording.
-          </p>
-          <p className="mt-2">
-            The backend also requires a pain level, while this form allows pain
-            to be omitted. No pain value will be filled in automatically.
-            Medication taken is not supported by this backend contract and will
-            not be reported as saved.
-          </p>
-        </div>
       ) : (
         <>
           <p className="mb-5 rounded-lg bg-canvas px-4 py-3 text-sm leading-6 text-muted">
-            Enter synthetic demo information only. This check-in stays in
-            browser memory and is not sent to a server.
+            {dataMode === 'demo'
+              ? 'Enter synthetic demo information only. This check-in stays in browser memory and is not sent to a server.'
+              : 'Your original symptom report is sent unchanged in notes. Structured symptoms are empty unless you enter or select them separately; this form does not classify free text.'}
           </p>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
@@ -153,14 +155,21 @@ function CheckInForm() {
                 className="block text-sm font-semibold text-navy"
                 htmlFor="reported-symptoms"
               >
-                Reported symptoms <span aria-hidden="true">*</span>
+                {dataMode === 'live'
+                  ? 'Original free-text symptom report'
+                  : 'Reported symptoms'}{' '}
+                <span aria-hidden="true">*</span>
               </label>
               <textarea
                 className="mt-1.5 min-h-24 w-full resize-y rounded-lg border border-line px-3 py-2.5 text-navy placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
                 disabled={submissionState === 'loading'}
                 id="reported-symptoms"
                 onChange={(event) => setReportedSymptoms(event.target.value)}
-                placeholder="Enter a synthetic demo update"
+                placeholder={
+                  dataMode === 'demo'
+                    ? 'Enter a synthetic demo update'
+                    : 'Describe what you are experiencing in your own words'
+                }
                 required
                 value={reportedSymptoms}
               />
@@ -171,47 +180,51 @@ function CheckInForm() {
                 className="block text-sm font-semibold text-navy"
                 htmlFor="pain-score"
               >
-                Pain score <span className="font-normal text-muted">(optional, 0-10)</span>
+                Pain level <span className="font-normal text-muted">(required, 0-10)</span>
               </label>
-              <input
+              <select
                 className="mt-1.5 min-h-11 w-full rounded-lg border border-line px-3 text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal sm:max-w-xs"
                 disabled={submissionState === 'loading'}
                 id="pain-score"
-                max="10"
-                min="0"
                 onChange={(event) => setPainScore(event.target.value)}
-                step="1"
-                type="number"
+                required
                 value={painScore}
-              />
+              >
+                <option value="">Select pain level</option>
+                {Array.from({ length: 11 }, (_, level) => (
+                  <option key={level} value={level}>{level}</option>
+                ))}
+              </select>
             </div>
 
-            <fieldset disabled={submissionState === 'loading'}>
-              <legend className="text-sm font-semibold text-navy">
-                Medication taken <span aria-hidden="true">*</span>
-              </legend>
-              <div className="mt-2 flex gap-3">
-                {[
-                  { value: 'yes', label: 'Yes' },
-                  { value: 'no', label: 'No' },
-                ].map(({ value, label }) => (
-                  <label
-                    className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-line px-4 text-sm text-navy focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-teal"
-                    key={value}
-                  >
-                    <input
-                      checked={medicationTaken === value}
-                      name="medication-taken"
-                      onChange={() => setMedicationTaken(value)}
-                      required
-                      type="radio"
-                      value={value}
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
+            {dataMode === 'demo' ? (
+              <fieldset disabled={submissionState === 'loading'}>
+                <legend className="text-sm font-semibold text-navy">
+                  Medication taken <span aria-hidden="true">*</span>
+                </legend>
+                <div className="mt-2 flex gap-3">
+                  {[
+                    { value: 'yes', label: 'Yes' },
+                    { value: 'no', label: 'No' },
+                  ].map(({ value, label }) => (
+                    <label
+                      className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-line px-4 text-sm text-navy focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-teal"
+                      key={value}
+                    >
+                      <input
+                        checked={medicationTaken === value}
+                        name="medication-taken"
+                        onChange={() => setMedicationTaken(value)}
+                        required
+                        type="radio"
+                        value={value}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
 
             <div>
               <label
@@ -252,7 +265,11 @@ function CheckInForm() {
               disabled={submissionState === 'loading'}
               type="submit"
             >
-              {submissionState === 'loading' ? 'Saving demo check-in...' : 'Submit check-in'}
+              {submissionState === 'loading'
+                ? dataMode === 'demo'
+                  ? 'Saving demo check-in...'
+                  : 'Saving check-in...'
+                : 'Submit check-in'}
             </button>
           </form>
         </>
