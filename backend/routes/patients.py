@@ -202,6 +202,7 @@ def get_patient_summary(
         summary["latest_check_in"].update(
             {
                 "reported_symptoms": checkins[-1].reported_symptoms,
+                "notes": checkins[-1].notes,
                 "medication_taken": checkins[-1].medication_taken,
                 "temperature": checkins[-1].temperature,
                 "temperature_c": checkins[-1].temperature_c,

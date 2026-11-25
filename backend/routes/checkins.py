@@ -229,6 +229,7 @@ def create_checkin(
             "medication_taken": new_checkin.medication_taken,
             "reported_symptoms": new_checkin.reported_symptoms,
             "symptoms": checkin.symptoms or [],
+            "notes": new_checkin.notes,
             "generated_alerts": saved_alerts,
             "insufficient_history": result["insufficient_history"],
             "insufficient_history_reason": result["insufficient_history_reason"],

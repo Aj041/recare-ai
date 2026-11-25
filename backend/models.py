@@ -40,7 +40,7 @@ class CheckIn(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("patients.id"))
-    pain_level = Column(Integer)
+    pain_level = Column(Integer, nullable=False)
     temperature = Column(String(20))
     temperature_c = Column(Float)
     medication_taken = Column(Boolean)

@@ -128,6 +128,44 @@ class BackendIntegrationTests(unittest.TestCase):
         self.assertEqual(response.json()["temperature"], "37 C")
         self.assertEqual(response.json()["symptoms"], ["fatigue"])
 
+    def test_checkin_requires_pain_and_preserves_original_notes_through_history_and_summary(self):
+        patient_id = self._create_patient()
+
+        missing_pain = self.client.post(
+            "/api/checkins",
+            json={
+                "patient_id": patient_id,
+                "symptoms": [],
+                "notes": "Original report",
+            },
+        )
+        self.assertEqual(missing_pain.status_code, 422, missing_pain.text)
+
+        original_report = "  Original wording, punctuation!\nKeep this line exactly.  "
+        response = self.client.post(
+            "/api/checkins",
+            json={
+                "patient_id": patient_id,
+                "pain_level": 6,
+                "symptoms": [],
+                "notes": original_report,
+                "date": "2026-11-25",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["notes"], original_report)
+        self.assertEqual(response.json()["symptoms"], [])
+
+        history = self.client.get(f"/api/patients/{patient_id}/history")
+        self.assertEqual(history.status_code, 200, history.text)
+        self.assertEqual(history.json()["history"][0]["notes"], original_report)
+        self.assertEqual(history.json()["history"][0]["pain_level"], 6)
+
+        summary = self.client.get(f"/api/patients/{patient_id}/summary")
+        self.assertEqual(summary.status_code, 200, summary.text)
+        self.assertEqual(summary.json()["latest_check_in"]["notes"], original_report)
+        self.assertEqual(summary.json()["latest_check_in"]["pain_score"], 6)
+
     def test_patient_summary_uses_latest_daily_checkin_and_structured_plan(self):
         patient_id = self._create_patient()
         with self.session_factory() as db:
@@ -185,6 +223,7 @@ class BackendIntegrationTests(unittest.TestCase):
             payload["latest_check_in"]["reported_symptoms"],
             "Feeling more tired today.",
         )
+        self.assertIsNone(payload["latest_check_in"]["notes"])
         self.assertFalse(payload["latest_check_in"]["medication_taken"])
         self.assertEqual(len(payload["active_alerts"]), 1)
         self.assertEqual(payload["discharge"]["recovery_instructions"], ["Rest as instructed."])
