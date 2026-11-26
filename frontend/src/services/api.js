@@ -1,4 +1,6 @@
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').trim()
+export const API_BASE_URL = (
+  import.meta.env?.VITE_API_BASE_URL ?? 'http://127.0.0.1:8002'
+).trim()
 
 export class ApiError extends Error {
   constructor(message, { kind = 'unknown', status = null, cause } = {}) {
@@ -88,6 +90,7 @@ export async function requestJson(
     allowEmpty = false,
     baseUrl = API_BASE_URL,
     fetchImpl = globalThis.fetch,
+    onUnauthorized,
     ...requestOptions
   } = {},
 ) {
@@ -108,6 +111,9 @@ export async function requestJson(
   }
 
   if (!response.ok) {
+    if (response.status === 401 && typeof onUnauthorized === 'function') {
+      onUnauthorized()
+    }
     let responseText
     try {
       responseText = await response.text()
@@ -151,6 +157,36 @@ export async function requestJson(
   }
 }
 
+function authenticatedOptions(accessToken, options = {}) {
+  if (typeof accessToken !== 'string' || !accessToken.trim()) {
+    throw new ApiError('Doctor login is required for this request.', {
+      kind: 'authentication',
+      status: 401,
+    })
+  }
+  const { headers = {}, ...requestOptions } = options
+  return {
+    ...requestOptions,
+    headers: {
+      ...headers,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  }
+}
+
+function reviewRecoveryTask(path, accessToken, payload, options) {
+  const requestOptions = authenticatedOptions(accessToken, options)
+  return requestJson(path, {
+    ...requestOptions,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...requestOptions.headers,
+    },
+    body: JSON.stringify(payload),
+  })
+}
+
 function unavailable(operation) {
   return Promise.reject(
     new ApiError(
@@ -167,6 +203,57 @@ export function preparePdfFormData(file) {
 }
 
 export const apiService = Object.freeze({
+  doctorLogin: (credentials, options = {}) =>
+    requestJson('/api/auth/doctor/login', {
+      ...options,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      body: JSON.stringify(credentials),
+    }),
+  runRecoveryAgent: (patientId, accessToken, options = {}) =>
+    requestJson(
+      `/api/patients/${encodeURIComponent(patientId)}/agent/run`,
+      authenticatedOptions(accessToken, { ...options, method: 'POST' }),
+    ),
+  getRecoveryAgentObservations: (patientId, accessToken, options = {}) =>
+    requestJson(
+      `/api/patients/${encodeURIComponent(patientId)}/agent/observations`,
+      authenticatedOptions(accessToken, options),
+    ),
+  getRecoveryAgentTasks: (patientId, accessToken, options = {}) =>
+    requestJson(
+      `/api/patients/${encodeURIComponent(patientId)}/agent/tasks`,
+      authenticatedOptions(accessToken, options),
+    ),
+  approveRecoveryAgentTask: (
+    patientId,
+    taskId,
+    accessToken,
+    payload = {},
+    options = {},
+  ) =>
+    reviewRecoveryTask(
+      `/api/patients/${encodeURIComponent(patientId)}/agent/tasks/${encodeURIComponent(taskId)}/approve`,
+      accessToken,
+      payload,
+      options,
+    ),
+  rejectRecoveryAgentTask: (
+    patientId,
+    taskId,
+    accessToken,
+    payload = {},
+    options = {},
+  ) =>
+    reviewRecoveryTask(
+      `/api/patients/${encodeURIComponent(patientId)}/agent/tasks/${encodeURIComponent(taskId)}/reject`,
+      accessToken,
+      payload,
+      options,
+    ),
   createPatient: (patient, options = {}) =>
     requestJson('/api/patients/', {
       ...options,
@@ -202,6 +289,38 @@ export const apiService = Object.freeze({
       throw error
     }
   },
+  getLatestCarePlanAdherence: async (patientId, options = {}) => {
+    try {
+      return await requestJson(
+        `/api/patients/${encodeURIComponent(patientId)}/careplan/latest/adherence`,
+        options,
+      )
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return null
+      }
+      throw error
+    }
+  },
+  updateCarePlanAdherence: (
+    patientId,
+    carePlanId,
+    itemId,
+    payload,
+    options = {},
+  ) =>
+    requestJson(
+      `/api/patients/${encodeURIComponent(patientId)}/careplan/${encodeURIComponent(carePlanId)}/adherence/${encodeURIComponent(itemId)}`,
+      {
+        ...options,
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+        body: JSON.stringify(payload),
+      },
+    ),
   submitCheckIn: (payload, options = {}) =>
     requestJson('/api/checkins', {
       ...options,
@@ -216,6 +335,11 @@ export const apiService = Object.freeze({
   getPatientHistory: (patientId, options = {}) =>
     requestJson(
       `/api/patients/${encodeURIComponent(patientId)}/history`,
+      options,
+    ),
+  getPatientAlerts: (patientId, options = {}) =>
+    requestJson(
+      `/api/alerts/?patient_id=${encodeURIComponent(patientId)}`,
       options,
     ),
 })

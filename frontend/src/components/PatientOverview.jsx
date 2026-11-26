@@ -10,6 +10,9 @@ function PatientOverview() {
     dataMode,
     selectedPatient,
     recoveryPlans,
+    recoveryPlanStatus,
+    recoveryPlanError,
+    refreshLatestCarePlan,
     checkIns,
     patientHistoryStatus,
     patientHistoryError,
@@ -66,18 +69,38 @@ function PatientOverview() {
               <ClipboardList aria-hidden="true" className="text-teal-dark" size={18} />
               <h3 className="font-semibold text-navy">Available recovery plan</h3>
             </div>
-            {dataMode === 'live' ? (
-              <p className="mt-2 text-sm leading-6 text-muted">
-                Unavailable: no recovery-plan retrieval endpoint is confirmed.
-                Extracted PDF text is not a structured recovery plan.
-              </p>
+            {dataMode === 'live' && !recoveryPlan ? (
+              <div className="mt-2 space-y-2 text-sm leading-6 text-muted">
+                <p>
+                  {recoveryPlanStatus === 'loading' || recoveryPlanStatus === 'idle'
+                    ? 'Loading the saved recovery plan…'
+                    : recoveryPlanStatus === 'error'
+                      ? recoveryPlanError
+                      : 'No saved recovery plan is available.'}
+                </p>
+                {recoveryPlanStatus === 'error' ? (
+                  <button
+                    className="min-h-9 rounded-full border border-line px-3 text-sm font-semibold text-navy"
+                    onClick={() => refreshLatestCarePlan(selectedPatient.id)}
+                    type="button"
+                  >
+                    Retry recovery plan
+                  </button>
+                ) : null}
+              </div>
             ) : recoveryPlan ? (
               <>
                 <p className="mt-2 text-xs font-medium text-muted">
-                  Synthetic demo fixture. Not a clinical recommendation.
+                  {dataMode === 'demo'
+                    ? 'Synthetic demo fixture. Not a clinical recommendation.'
+                    : 'Patient-reported adherence shown read-only.'}
                 </p>
                 <div className="mt-3">
-                  <RecoveryPlanDetails plan={recoveryPlan} />
+                  <RecoveryPlanDetails
+                    dataMode={dataMode}
+                    plan={recoveryPlan}
+                    readOnly
+                  />
                 </div>
               </>
             ) : (

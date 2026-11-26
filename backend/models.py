@@ -1,5 +1,5 @@
 
-from sqlalchemy import Boolean, Column, Float, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Boolean, Column, Float, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -20,6 +20,17 @@ class Patient(Base):
     care_plans = relationship("CarePlan", back_populates="patient")
     checkins = relationship("CheckIn", back_populates="patient")
     alerts = relationship("Alert", back_populates="patient")
+
+
+class Doctor(Base):
+    """Hackathon doctor account; only a password hash is persisted."""
+    __tablename__ = "doctors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(254), nullable=False, unique=True, index=True)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(30), nullable=False, default="doctor")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
 # 2. Care plans table
@@ -67,3 +78,46 @@ class Alert(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     patient = relationship("Patient", back_populates="alerts")
+
+
+class CompanionRun(Base):
+    __tablename__ = "companion_runs"
+    __table_args__ = (
+        UniqueConstraint("patient_id", "evidence_hash", name="uq_companion_run_evidence"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    evidence_hash = Column(String(64), nullable=False)
+    model = Column(String(100), nullable=False)
+    evidence_snapshot = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class CompanionObservation(Base):
+    __tablename__ = "companion_observations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_id = Column(Integer, ForeignKey("companion_runs.id"), nullable=False, index=True)
+    source_type = Column(String(30), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=False)
+    evidence_refs = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ProposedTask(Base):
+    __tablename__ = "proposed_tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_id = Column(Integer, ForeignKey("companion_runs.id"), nullable=False, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=False)
+    reason = Column(Text, nullable=False)
+    evidence_refs = Column(Text, nullable=False)
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    reviewed_by = Column(String(120))
+    reviewed_at = Column(DateTime)
+    review_note = Column(Text)

@@ -13,6 +13,7 @@ function RecoveryPlan() {
     recoveryPlanStatus,
     recoveryPlanError,
     refreshLatestCarePlan,
+    updateRecoveryPlanAdherence,
   } = usePatientData()
   const plan = selectedPatient
     ? recoveryPlans[selectedPatient.id]
@@ -94,7 +95,13 @@ function RecoveryPlan() {
               : 'Structured information interpreted from this patient’s saved discharge document. It is not a diagnosis or prescription.'}
             {' '}Missing clinical details are not filled in.
           </p>
-          <RecoveryPlanDetails plan={plan} />
+          <RecoveryPlanDetails
+            dataMode={dataMode}
+            onUpdateAdherence={(itemId, payload) =>
+              updateRecoveryPlanAdherence(selectedPatient.id, itemId, payload)
+            }
+            plan={plan}
+          />
         </>
       )}
     </section>

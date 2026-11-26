@@ -1,6 +1,8 @@
 
-from pydantic import BaseModel, Field, model_validator
-from typing import Optional, List
+from datetime import datetime
+from typing import Any, Literal, Optional, List
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class PatientCreate(BaseModel):
@@ -16,6 +18,17 @@ class PatientResponse(BaseModel):
     age: Optional[int] = None
     gender: Optional[str] = None
     phone: Optional[str] = None
+
+
+class DoctorLoginRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=1024)
+
+
+class JWTAccessTokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_in: int
 
 
 class CheckInCreate(BaseModel):
@@ -53,3 +66,93 @@ class CheckInResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+AdherenceStatus = Literal[
+    "unreported", "completed", "not_completed", "need_help", "not_applicable"
+]
+
+
+class AdherenceUpdateRequest(BaseModel):
+    status: AdherenceStatus
+    patient_note: Optional[str] = None
+
+
+class AdherenceItemResponse(BaseModel):
+    item_id: str
+    source_index: int
+    instruction: str
+    status: AdherenceStatus
+    reported_at: Optional[datetime] = None
+    patient_note: Optional[str] = None
+
+
+class AdherenceStateResponse(BaseModel):
+    schema_version: Literal[1]
+    items: list[AdherenceItemResponse]
+
+
+class CarePlanAdherenceResponse(BaseModel):
+    care_plan_id: int
+    patient_id: int
+    structured_plan: dict[str, Any]
+    adherence: AdherenceStateResponse
+    created_at: datetime
+
+
+class CompanionObservationOutput(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(min_length=1)
+    evidence_refs: list[str] = Field(min_length=1)
+
+
+class CompanionTaskOutput(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str = Field(min_length=1)
+    reason: str = Field(min_length=1)
+    evidence_refs: list[str] = Field(min_length=1)
+
+
+class CompanionReasoningOutput(BaseModel):
+    observations: list[CompanionObservationOutput]
+    proposed_tasks: list[CompanionTaskOutput]
+
+
+class CompanionTaskReviewRequest(BaseModel):
+    review_note: Optional[str] = None
+
+
+class CompanionObservationResponse(BaseModel):
+    id: int
+    title: str
+    description: str
+    evidence_refs: list[str]
+    source: Literal["agent_generated", "system_generated"]
+    created_at: datetime
+
+
+class ProposedTaskResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    description: str
+    reason: str
+    evidence_refs: list[str]
+    status: Literal["pending", "approved", "rejected"]
+    created_at: datetime
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    review_note: Optional[str] = None
+
+
+class CompanionRunResponse(BaseModel):
+    run_id: int
+    patient_id: int
+    evidence_hash: str
+    created_at: datetime
+    reused_existing_run: bool
+    deterministic_alerts: list[dict[str, Any]]
+    evidence: list[dict[str, Any]]
+    observations: list[CompanionObservationResponse]
+    proposed_tasks: list[ProposedTaskResponse]
