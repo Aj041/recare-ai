@@ -187,6 +187,10 @@ function RecoveryPlanDetails({
                     <dt className="text-xs text-muted">Duration</dt>
                     <dd className="mt-1 text-navy">{medication.duration}</dd>
                   </div>
+                  <div className="col-span-2">
+                    <dt className="text-xs text-muted">Instructions</dt>
+                    <dd className="mt-1 whitespace-pre-wrap text-navy">{medication.instructions}</dd>
+                  </div>
                 </dl>
               </li>
             ))}

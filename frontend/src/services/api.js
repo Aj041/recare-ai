@@ -254,6 +254,46 @@ export const apiService = Object.freeze({
       payload,
       options,
     ),
+  getCurrentMedications: async (patientId, options = {}) => {
+    try {
+      return await requestJson(
+        `/api/patients/${encodeURIComponent(patientId)}/medications`,
+        options,
+      )
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return null
+      }
+      throw error
+    }
+  },
+  getDoctorMedications: (patientId, carePlanId, accessToken, options = {}) =>
+    requestJson(
+      `/api/patients/${encodeURIComponent(patientId)}/careplan/${encodeURIComponent(carePlanId)}/medications`,
+      authenticatedOptions(accessToken, options),
+    ),
+  updateDoctorMedication: (
+    patientId,
+    carePlanId,
+    medicationId,
+    accessToken,
+    payload,
+    options = {},
+  ) => {
+    const requestOptions = authenticatedOptions(accessToken, options)
+    return requestJson(
+      `/api/patients/${encodeURIComponent(patientId)}/careplan/${encodeURIComponent(carePlanId)}/medications/${encodeURIComponent(medicationId)}`,
+      {
+        ...requestOptions,
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...requestOptions.headers,
+        },
+        body: JSON.stringify(payload),
+      },
+    )
+  },
   createPatient: (patient, options = {}) =>
     requestJson('/api/patients/', {
       ...options,

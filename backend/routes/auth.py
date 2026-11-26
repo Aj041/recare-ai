@@ -1,6 +1,7 @@
 """Prototype doctor login endpoint; see backend/AUTHENTICATION.md."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -15,13 +16,8 @@ from services.doctor_auth import (
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
-@router.post(
-    "/doctor/login",
-    response_model=JWTAccessTokenResponse,
-    description="Hackathon prototype login for a configured synthetic doctor account.",
-)
-def doctor_login(credentials: DoctorLoginRequest, db: Session = Depends(get_db)):
-    email = credentials.email.strip().casefold()
+def _issue_doctor_token(email: str, password: str, db: Session) -> dict:
+    email = email.strip().casefold()
     doctor = db.query(Doctor).filter(Doctor.email == email).first()
     if doctor is None:
         # Optional first-login bootstrap for existing demo deployments. Once
@@ -31,7 +27,7 @@ def doctor_login(credentials: DoctorLoginRequest, db: Session = Depends(get_db))
             doctor = seeded_doctor
     if doctor is None:
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    if doctor is None or not verify_password(credentials.password, doctor.password_hash):
+    if doctor is None or not verify_password(password, doctor.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     try:
         token, expires_in = create_access_token(doctor.email, doctor.role)
@@ -42,3 +38,24 @@ def doctor_login(credentials: DoctorLoginRequest, db: Session = Depends(get_db))
         "token_type": "bearer",
         "expires_in": expires_in,
     }
+
+
+@router.post(
+    "/doctor/login",
+    response_model=JWTAccessTokenResponse,
+    description="Hackathon prototype JSON login for a configured synthetic doctor account.",
+)
+def doctor_login(credentials: DoctorLoginRequest, db: Session = Depends(get_db)):
+    return _issue_doctor_token(credentials.email, credentials.password, db)
+
+
+@router.post(
+    "/doctor/token",
+    response_model=JWTAccessTokenResponse,
+    description="OAuth2 password-flow token endpoint used by Swagger Authorize. Enter the doctor email as the username.",
+)
+def swagger_doctor_token(
+    credentials: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    return _issue_doctor_token(credentials.username, credentials.password, db)

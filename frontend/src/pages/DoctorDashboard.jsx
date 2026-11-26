@@ -13,6 +13,7 @@ import PatientOverview from '../components/PatientOverview.jsx'
 import PatientSummary from '../components/PatientSummary.jsx'
 import RecoveryTrendChart from '../components/RecoveryTrendChart.jsx'
 import RecoveryCompanion from '../components/RecoveryCompanion.jsx'
+import MedicationManagement from '../components/MedicationManagement.jsx'
 import { usePatientData } from '../context/usePatientData.js'
 import { normalizeAlertEvaluation } from '../utils/aiOutputAdapters.js'
 
@@ -168,6 +169,10 @@ function DoctorDashboard() {
 
       <div className="mt-6">
         <RecoveryCompanion />
+      </div>
+
+      <div className="mt-6">
+        <MedicationManagement />
       </div>
 
       <div className="mt-6">

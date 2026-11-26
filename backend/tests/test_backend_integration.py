@@ -21,6 +21,7 @@ from models import (
     CompanionObservation,
     CompanionRun,
     Doctor,
+    MedicationHistory,
     Patient,
     ProposedTask,
 )
@@ -29,6 +30,7 @@ from routes.auth import router as auth_router
 from routes.careplans import router as careplans_router
 from routes.alerts import router as alerts_router
 from routes.checkins import router as checkins_router
+from routes.medications import router as medications_router
 from routes.patients import router as patients_router
 from services.companion_agent import (
     CompanionEvidenceError,
@@ -66,6 +68,7 @@ class BackendIntegrationTests(unittest.TestCase):
         app.include_router(alerts_router)
         app.include_router(auth_router)
         app.include_router(agent_router)
+        app.include_router(medications_router)
 
         def override_get_db():
             db = self.session_factory()
@@ -100,6 +103,43 @@ class BackendIntegrationTests(unittest.TestCase):
             db.commit()
             db.refresh(plan)
             return plan.id
+
+    def test_swagger_password_flow_issues_token_for_protected_medication_get(self):
+        patient_id = self._create_patient()
+        care_plan_id = self._create_care_plan(
+            patient_id,
+            {"medications": [{"name": "Synthetic medication", "dose": "1 tablet"}]},
+        )
+
+        openapi = self.client.get("/openapi.json").json()
+        security_schemes = openapi["components"]["securitySchemes"]
+        password_flow = next(
+            scheme["flows"]["password"]
+            for scheme in security_schemes.values()
+            if "password" in scheme.get("flows", {})
+        )
+        self.assertEqual(password_flow["tokenUrl"], "/api/auth/doctor/token")
+
+        response = self.client.post(
+            "/api/auth/doctor/token",
+            data={"username": "doctor@example.test", "password": "synthetic-demo-password"},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        token = response.json()["access_token"]
+
+        medications = self.client.get(
+            f"/api/patients/{patient_id}/careplan/{care_plan_id}/medications",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        self.assertEqual(medications.status_code, 200, medications.text)
+        self.assertEqual(medications.json()["medications"][0]["name"], "Synthetic medication")
+
+        json_login = self.client.post(
+            "/api/auth/doctor/login",
+            json={"email": "doctor@example.test", "password": "synthetic-demo-password"},
+        )
+        self.assertEqual(json_login.status_code, 200, json_login.text)
+        self.assertEqual(json_login.json()["token_type"], "bearer")
 
     def test_legacy_plan_initializes_adherence_without_changing_instructions(self):
         patient_id = self._create_patient()
@@ -733,6 +773,113 @@ class BackendIntegrationTests(unittest.TestCase):
             json={},
         )
         self.assertEqual(cross_patient.status_code, 404, cross_patient.text)
+
+    def test_medication_list_preserves_original_plan_and_shows_default_instructions(self):
+        patient_id = self._create_patient()
+        care_plan_id = self._create_care_plan(
+            patient_id,
+            {
+                "medications": [{
+                    "name": "Documented medication",
+                    "dose": "5 mg",
+                    "frequency": "Once daily",
+                    "duration": "7 days",
+                }],
+                "recovery_instructions": [],
+            },
+        )
+
+        response = self.client.get(f"/api/patients/{patient_id}/medications")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        payload = response.json()
+        self.assertEqual(payload["care_plan_id"], care_plan_id)
+        self.assertNotIn("history", payload)
+        self.assertEqual(payload["medications"], [{
+            "medication_id": "medication_0",
+            "name": "Documented medication",
+            "dosage": "5 mg",
+            "frequency": "Once daily",
+            "duration": "7 days",
+            "instructions": "Not specified",
+        }])
+
+    def test_medication_update_requires_doctor_confirmation_and_preserves_history(self):
+        patient_id = self._create_patient()
+        other_patient_id = self._create_patient()
+        care_plan_id = self._create_care_plan(
+            patient_id,
+            {
+                "medications": [{
+                    "name": "Documented medication",
+                    "dose": "5 mg",
+                    "frequency": "Once daily",
+                    "duration": "7 days",
+                }],
+                "recovery_instructions": [],
+            },
+        )
+        login = self.client.post(
+            "/api/auth/doctor/login",
+            json={"email": "doctor@example.test", "password": "synthetic-demo-password"},
+        )
+        self.assertEqual(login.status_code, 200, login.text)
+        headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+        path = (
+            f"/api/patients/{patient_id}/careplan/{care_plan_id}"
+            "/medications/medication_0"
+        )
+        request = {
+            "dosage": "10 mg",
+            "frequency": "Twice daily",
+            "duration": "14 days",
+            "instructions": "Take with the documented meal.",
+            "reason": "Synthetic clinician review documented this update.",
+            "confirmed": True,
+        }
+
+        missing_token = self.client.patch(path, json=request)
+        self.assertEqual(missing_token.status_code, 401, missing_token.text)
+        not_confirmed = self.client.patch(
+            path,
+            headers=headers,
+            json={**request, "confirmed": False},
+        )
+        self.assertEqual(not_confirmed.status_code, 422, not_confirmed.text)
+        cross_patient = self.client.patch(
+            f"/api/patients/{other_patient_id}/careplan/{care_plan_id}/medications/medication_0",
+            headers=headers,
+            json=request,
+        )
+        self.assertEqual(cross_patient.status_code, 404, cross_patient.text)
+
+        updated = self.client.patch(path, headers=headers, json=request)
+        self.assertEqual(updated.status_code, 200, updated.text)
+        medication = updated.json()["medications"][0]
+        self.assertEqual(medication["name"], "Documented medication")
+        self.assertEqual(medication["dosage"], "10 mg")
+        self.assertEqual(medication["instructions"], "Take with the documented meal.")
+        history = updated.json()["history"]
+        self.assertEqual(len(history), 1)
+        self.assertEqual(history[0]["previous_details"]["dosage"], "5 mg")
+        self.assertEqual(history[0]["updated_details"], medication)
+        self.assertEqual(history[0]["doctor_email"], "doctor@example.test")
+        self.assertEqual(history[0]["reason"], request["reason"])
+
+        retrieved = self.client.get(
+            f"/api/patients/{patient_id}/careplan/{care_plan_id}/medications",
+            headers=headers,
+        )
+        self.assertEqual(retrieved.status_code, 200, retrieved.text)
+        self.assertEqual(retrieved.json()["medications"][0], medication)
+        self.assertEqual(len(retrieved.json()["history"]), 1)
+        with self.session_factory() as db:
+            self.assertEqual(db.query(MedicationHistory).count(), 1)
+            plan_data = json.loads(
+                db.query(CarePlan).filter(CarePlan.id == care_plan_id).one().plan_data
+            )
+        self.assertEqual(plan_data["medications"][0]["name"], "Documented medication")
+        self.assertEqual(plan_data["medications"][0]["dose"], "10 mg")
 
 
 if __name__ == "__main__":

@@ -70,6 +70,7 @@ function normalizeMedication(value) {
     dose: displayText(medication.dose),
     frequency: displayText(medication.frequency),
     duration: displayText(medication.duration),
+    instructions: displayText(medication.instructions),
   }
 }
 

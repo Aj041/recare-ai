@@ -121,3 +121,19 @@ class ProposedTask(Base):
     reviewed_by = Column(String(120))
     reviewed_at = Column(DateTime)
     review_note = Column(Text)
+
+
+class MedicationHistory(Base):
+    """Append-only record of a doctor-authorized medication detail update."""
+    __tablename__ = "medication_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
+    care_plan_id = Column(Integer, ForeignKey("care_plans.id"), nullable=False, index=True)
+    medication_id = Column(String(100), nullable=False, index=True)
+    medication_name = Column(String(200), nullable=False)
+    previous_details = Column(Text, nullable=False)
+    updated_details = Column(Text, nullable=False)
+    reason = Column(Text, nullable=False)
+    doctor_email = Column(String(254), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

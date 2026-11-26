@@ -31,7 +31,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 _TOKEN_ISSUER = "recare-ai-hackathon"
 _PASSWORD_ITERATIONS = 310_000
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/api/auth/doctor/login",
+    tokenUrl="/api/auth/doctor/token",
     auto_error=False,
 )
 

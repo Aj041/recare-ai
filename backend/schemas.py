@@ -156,3 +156,46 @@ class CompanionRunResponse(BaseModel):
     evidence: list[dict[str, Any]]
     observations: list[CompanionObservationResponse]
     proposed_tasks: list[ProposedTaskResponse]
+
+
+class MedicationDetailsResponse(BaseModel):
+    medication_id: str
+    name: str
+    dosage: str
+    frequency: str
+    duration: str
+    instructions: str
+
+
+class MedicationHistoryResponse(BaseModel):
+    id: int
+    care_plan_id: int
+    medication_id: str
+    medication_name: str
+    previous_details: MedicationDetailsResponse
+    updated_details: MedicationDetailsResponse
+    reason: str
+    doctor_email: str
+    created_at: datetime
+
+
+class MedicationListResponse(BaseModel):
+    care_plan_id: int
+    patient_id: int
+    medications: list[MedicationDetailsResponse]
+    history: list[MedicationHistoryResponse]
+
+
+class MedicationCurrentResponse(BaseModel):
+    care_plan_id: int
+    patient_id: int
+    medications: list[MedicationDetailsResponse]
+
+
+class MedicationUpdateRequest(BaseModel):
+    dosage: str = Field(min_length=1, max_length=200)
+    frequency: str = Field(min_length=1, max_length=200)
+    duration: str = Field(min_length=1, max_length=200)
+    instructions: str = Field(min_length=1, max_length=2000)
+    reason: str = Field(min_length=1, max_length=2000)
+    confirmed: Literal[True]

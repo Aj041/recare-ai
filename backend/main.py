@@ -8,6 +8,7 @@ from routes.auth import router as auth_router
 from routes.careplans import router as careplans_router
 from routes.checkins import router as checkins_router
 from routes.discharge import router as discharge_router
+from routes.medications import router as medications_router
 from routes.patients import router as patients_router
 
 # Create FastAPI application
@@ -22,6 +23,7 @@ initialize_database()
 app.include_router(patients_router)
 app.include_router(auth_router)
 app.include_router(agent_router)
+app.include_router(medications_router)
 app.include_router(discharge_router)
 app.include_router(checkins_router)
 app.include_router(alerts_router)
