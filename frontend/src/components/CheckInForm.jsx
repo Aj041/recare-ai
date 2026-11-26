@@ -122,10 +122,10 @@ function CheckInForm() {
   return (
     <section
       aria-labelledby="daily-checkin-title"
-      className="rounded-2xl border border-line bg-white p-6 sm:p-7"
+      className="surface-panel rounded-2xl border border-line bg-white p-6 sm:p-7"
     >
       <div className="mb-5 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
+        <span className="grid size-11 place-items-center rounded-xl bg-blue-light text-blue">
           <ClipboardCheck aria-hidden="true" size={21} />
         </span>
         <div>
@@ -144,7 +144,7 @@ function CheckInForm() {
         </p>
       ) : (
         <>
-          <p className="mb-5 rounded-lg bg-canvas px-4 py-3 text-sm leading-6 text-muted">
+          <p className="surface-quiet mb-5 px-4 py-3 text-sm leading-6 text-muted">
             {dataMode === 'demo'
               ? 'Enter synthetic demo information only. This check-in stays in browser memory and is not sent to a server.'
               : 'Your original symptom report is sent unchanged in notes. Structured symptoms are empty unless you enter or select them separately; this form does not classify free text.'}
@@ -161,7 +161,7 @@ function CheckInForm() {
                 <span aria-hidden="true">*</span>
               </label>
               <textarea
-                className="mt-1.5 min-h-24 w-full resize-y rounded-lg border border-line px-3 py-2.5 text-navy placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                className="field-control mt-1.5 min-h-24 resize-y px-3 py-2.5 placeholder:text-muted"
                 disabled={submissionState === 'loading'}
                 id="reported-symptoms"
                 onChange={(event) => setReportedSymptoms(event.target.value)}
@@ -183,7 +183,7 @@ function CheckInForm() {
                 Pain level <span className="font-normal text-muted">(required, 0-10)</span>
               </label>
               <select
-                className="mt-1.5 min-h-11 w-full rounded-lg border border-line px-3 text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal sm:max-w-xs"
+                className="field-control mt-1.5 min-h-11 px-3 sm:max-w-xs"
                 disabled={submissionState === 'loading'}
                 id="pain-score"
                 onChange={(event) => setPainScore(event.target.value)}
@@ -208,7 +208,7 @@ function CheckInForm() {
                     { value: 'no', label: 'No' },
                   ].map(({ value, label }) => (
                     <label
-                      className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-line px-4 text-sm text-navy focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-teal"
+                      className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-line bg-white px-4 text-sm text-navy transition-colors hover:border-teal/40 hover:bg-teal-light/40 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-teal"
                       key={value}
                     >
                       <input
@@ -234,7 +234,7 @@ function CheckInForm() {
                 Temperature <span className="font-normal text-muted">(optional, Celsius)</span>
               </label>
               <input
-                className="mt-1.5 min-h-11 w-full rounded-lg border border-line px-3 text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal sm:max-w-xs"
+                className="field-control mt-1.5 min-h-11 px-3 sm:max-w-xs"
                 disabled={submissionState === 'loading'}
                 id="temperature-c"
                 onChange={(event) => setTemperature(event.target.value)}
@@ -261,7 +261,7 @@ function CheckInForm() {
             )}
 
             <button
-              className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-dark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal disabled:cursor-wait disabled:opacity-70"
+              className="button-primary disabled:cursor-wait disabled:opacity-70"
               disabled={submissionState === 'loading'}
               type="submit"
             >

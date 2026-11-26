@@ -1,10 +1,10 @@
-import { HeartPulse } from 'lucide-react'
+import { Activity, HeartPulse, House, Stethoscope } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { usePatientData } from '../context/usePatientData.js'
 
 const navigationLinks = [
-  { to: '/patient', label: 'Patient Portal' },
-  { to: '/doctor', label: 'Doctor Dashboard' },
+  { to: '/patient', label: 'Patient Portal', Icon: Activity },
+  { to: '/doctor', label: 'Doctor Dashboard', Icon: Stethoscope },
 ]
 
 function Navbar() {
@@ -18,14 +18,14 @@ function Navbar() {
       >
         Skip to content
       </a>
-      <header className="border-b border-line bg-white">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4 sm:px-8 lg:px-12">
+      <header className="border-b border-line bg-white/95 shadow-sm backdrop-blur">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-3 sm:px-8 lg:px-12">
           <Link
             aria-label="RE:CARE AI home"
             className="flex shrink-0 items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal"
             to="/"
           >
-            <span className="grid size-10 place-items-center rounded-xl bg-teal text-white">
+            <span className="grid size-10 place-items-center rounded-xl bg-teal text-white shadow-sm shadow-teal/20">
               <HeartPulse aria-hidden="true" size={22} strokeWidth={2.2} />
             </span>
             <span className="text-lg font-bold tracking-tight text-navy">
@@ -35,8 +35,8 @@ function Navbar() {
               </span>
             </span>
           </Link>
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <div className="rounded-full border border-line bg-canvas p-1">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-4">
+            <div className="rounded-xl border border-line bg-canvas p-1">
               <span className="sr-only" id="data-mode-label">
                 Data mode: demo uses synthetic fixtures; live requests the backend.
               </span>
@@ -51,7 +51,7 @@ function Navbar() {
                 ].map(({ value, label }) => (
                   <button
                     aria-pressed={dataMode === value}
-                    className={`min-h-9 rounded-full px-3 text-xs font-bold tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
+                    className={`min-h-9 rounded-lg px-3 text-xs font-bold tracking-wide transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
                       dataMode === value
                         ? 'bg-teal text-white'
                         : 'text-muted hover:bg-white hover:text-navy'
@@ -68,30 +68,24 @@ function Navbar() {
             <nav aria-label="Primary navigation" className="flex flex-wrap items-center gap-1">
             <NavLink
               className={({ isActive }) =>
-                `rounded-full px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal sm:px-4 ${
-                  isActive
-                    ? 'bg-teal-light text-teal-dark'
-                    : 'text-muted hover:bg-canvas hover:text-navy'
-                }`
+                `nav-link ${isActive ? 'nav-link-active' : ''} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal`
               }
               end
               to="/"
             >
-              Home
+              <House aria-hidden="true" size={16} />
+              <span>Home</span>
             </NavLink>
-            {navigationLinks.map(({ to, label }) => (
+            {navigationLinks.map(({ to, label, Icon }) => (
               <NavLink
                 className={({ isActive }) =>
-                  `rounded-full px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal sm:px-4 ${
-                    isActive
-                      ? 'bg-teal-light text-teal-dark'
-                      : 'text-muted hover:bg-canvas hover:text-navy'
-                  }`
+                  `nav-link ${isActive ? 'nav-link-active' : ''} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal`
                 }
                 key={to}
                 to={to}
               >
-                {label}
+                <Icon aria-hidden="true" size={16} />
+                <span>{label}</span>
               </NavLink>
             ))}
             </nav>

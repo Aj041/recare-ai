@@ -242,10 +242,10 @@ function PDFUpload() {
   return (
     <section
       aria-labelledby="pdf-upload-title"
-      className="rounded-2xl border border-line bg-white p-6 sm:p-7"
+      className="surface-panel rounded-2xl border border-line bg-white p-6 sm:p-7"
     >
       <div className="mb-5 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
+        <span className="grid size-11 place-items-center rounded-xl bg-blue-light text-blue">
           <UploadCloud aria-hidden="true" size={21} />
         </span>
         <div>
@@ -262,7 +262,7 @@ function PDFUpload() {
         className={`rounded-xl border border-dashed p-6 text-center transition-colors sm:p-8 ${
           isDragging
             ? 'border-teal bg-teal-light'
-            : 'border-line bg-canvas/70'
+            : 'border-line bg-white'
         }`}
         onDragLeave={() => setIsDragging(false)}
         onDragOver={(event) => {
@@ -304,7 +304,7 @@ function PDFUpload() {
           />
         )}
         {status === 'success' && selectedFile && formData && (
-          <div className="rounded-xl border border-teal/20 bg-teal-light/60 p-4">
+          <div className="rounded-xl border border-teal/20 border-l-4 border-l-teal bg-teal-light/60 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex min-w-0 items-start gap-3">
                 <FileText aria-hidden="true" className="mt-0.5 shrink-0 text-teal-dark" size={20} />
@@ -344,7 +344,7 @@ function PDFUpload() {
                   then saves the structured plan for this patient.
                 </p>
                 <button
-                  className="min-h-11 rounded-full bg-teal px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-dark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal disabled:cursor-wait disabled:opacity-70"
+                  className="button-primary disabled:cursor-wait disabled:opacity-70"
                   disabled={!selectedPatient || uploadStatus === 'loading'}
                   onClick={uploadSelectedPdf}
                   type="button"

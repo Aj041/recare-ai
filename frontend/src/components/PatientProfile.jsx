@@ -79,10 +79,10 @@ function PatientProfile() {
   return (
     <section
       aria-labelledby="patient-profile-title"
-      className="rounded-2xl border border-line bg-white p-6 sm:p-7"
+      className="surface-panel rounded-2xl border border-line bg-white p-6 sm:p-7"
     >
       <div className="mb-5 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
+        <span className="grid size-11 place-items-center rounded-xl bg-blue-light text-blue">
           <CircleUserRound aria-hidden="true" size={21} />
         </span>
         <div>
@@ -123,7 +123,7 @@ function PatientProfile() {
         />
       ) : null}
       {patients.length > 0 && patientListStatus !== 'loading' ? (
-      <div className="rounded-xl bg-canvas p-4">
+      <div className="surface-quiet p-4">
         <label
           className="block text-sm font-semibold text-navy"
           htmlFor="selected-patient"
@@ -131,7 +131,7 @@ function PatientProfile() {
           Select a {dataMode === 'demo' ? 'demo' : 'live'} patient
         </label>
         <select
-          className="mt-2 min-h-11 w-full rounded-lg border border-line bg-white px-3 text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+          className="field-control mt-2 min-h-11 px-3"
           id="selected-patient"
           onChange={handlePatientSelection}
           value={selectedPatientId}
@@ -181,7 +181,7 @@ function PatientProfile() {
             </label>
             <input
               autoComplete="off"
-              className="mt-1.5 min-h-11 w-full rounded-lg border border-line px-3 text-navy placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+              className="field-control mt-1.5 min-h-11 px-3 placeholder:text-muted"
               id="new-patient-name"
               onChange={(event) => setDisplayName(event.target.value)}
               placeholder={
@@ -203,7 +203,7 @@ function PatientProfile() {
             </label>
             <input
               autoComplete="off"
-              className="mt-1.5 min-h-11 w-full rounded-lg border border-line px-3 text-navy placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+              className="field-control mt-1.5 min-h-11 px-3 placeholder:text-muted"
               id="new-patient-id"
               onChange={(event) => setPatientId(event.target.value)}
               placeholder="Example: P003"
@@ -221,7 +221,7 @@ function PatientProfile() {
                   Age <span className="font-normal text-muted">(optional)</span>
                 </label>
                 <input
-                  className="mt-1.5 min-h-11 w-full rounded-lg border border-line px-3 text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                  className="field-control mt-1.5 min-h-11 px-3"
                   id="new-patient-age"
                   min="0"
                   onChange={(event) => setAge(event.target.value)}
@@ -238,7 +238,7 @@ function PatientProfile() {
                   Gender <span className="font-normal text-muted">(optional)</span>
                 </label>
                 <input
-                  className="mt-1.5 min-h-11 w-full rounded-lg border border-line px-3 text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                  className="field-control mt-1.5 min-h-11 px-3"
                   id="new-patient-gender"
                   onChange={(event) => setGender(event.target.value)}
                   value={gender}
@@ -252,7 +252,7 @@ function PatientProfile() {
                   Phone <span className="font-normal text-muted">(optional)</span>
                 </label>
                 <input
-                  className="mt-1.5 min-h-11 w-full rounded-lg border border-line px-3 text-navy focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+                  className="field-control mt-1.5 min-h-11 px-3"
                   id="new-patient-phone"
                   onChange={(event) => setPhone(event.target.value)}
                   type="tel"
@@ -268,7 +268,7 @@ function PatientProfile() {
             : 'Use synthetic test information only. The backend assigns the patient ID; no demo record is sent.'}
         </p>
         <button
-          className="min-h-11 rounded-full bg-teal px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-dark focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-teal disabled:cursor-wait disabled:opacity-70"
+          className="button-primary disabled:cursor-wait disabled:opacity-70"
           disabled={isSubmitting}
           type="submit"
         >
@@ -287,7 +287,7 @@ function PatientProfile() {
         {successMessage && (
           <p
             aria-live="polite"
-            className="rounded-lg bg-teal-light px-4 py-3 text-sm font-medium text-teal-dark"
+            className="rounded-xl border border-teal/15 bg-teal-light/70 px-4 py-3 text-sm font-medium text-teal-dark"
             role="status"
           >
             {successMessage}

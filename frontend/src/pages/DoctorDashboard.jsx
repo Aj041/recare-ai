@@ -181,7 +181,7 @@ function DoctorDashboard() {
 
       <section
         aria-labelledby="demo-alerts-title"
-        className="mt-6 rounded-2xl border border-line bg-white p-6 sm:p-7"
+        className="surface-panel mt-6 rounded-2xl border border-line bg-white p-6 sm:p-7"
       >
         <div className="mb-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">

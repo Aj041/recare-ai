@@ -63,10 +63,10 @@ function PatientSummary({ displayedAlertIds = [] }) {
   return (
     <section
       aria-labelledby="patient-summary-title"
-      className="rounded-2xl border border-line bg-white p-6 sm:p-7"
+      className="surface-panel rounded-2xl border border-line bg-white p-6 sm:p-7"
     >
       <div className="mb-5 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
+        <span className="grid size-11 place-items-center rounded-xl bg-blue-light text-blue">
           <FileText aria-hidden="true" size={21} />
         </span>
         <div>
@@ -94,7 +94,7 @@ function PatientSummary({ displayedAlertIds = [] }) {
           {dataMode === 'live' ? (
             <>
               <dl className="mt-5 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-xl bg-canvas p-4">
+                <div className="surface-quiet p-4">
                   <dt className="text-sm text-muted">Recorded check-ins</dt>
                   <dd className="mt-2 text-2xl font-semibold text-navy">
                     {patientHistoryStatus === 'loading'
@@ -104,7 +104,7 @@ function PatientSummary({ displayedAlertIds = [] }) {
                         : patientCheckIns.length}
                   </dd>
                 </div>
-                <div className="rounded-xl bg-canvas p-4">
+                <div className="surface-quiet p-4">
                   <dt className="text-sm text-muted">Latest check-in timestamp</dt>
                   <dd className="mt-2 text-sm font-medium text-navy">
                     {patientHistoryStatus === 'loading'
@@ -127,7 +127,7 @@ function PatientSummary({ displayedAlertIds = [] }) {
                   Live check-in details are unavailable: {patientHistoryError}
                 </p>
               ) : latestCheckIn ? (
-                <section className="mt-5 rounded-xl border border-line p-4">
+                <section className="surface-quiet mt-5 p-4">
                   <h3 className="font-semibold text-navy">
                     Latest backend-recorded information
                   </h3>

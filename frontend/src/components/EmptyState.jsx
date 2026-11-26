@@ -8,10 +8,10 @@ function EmptyState({
 }) {
   return (
     <div
-      className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-canvas/70 px-5 py-8 text-center"
+      className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed border-line bg-white/70 px-5 py-8 text-center"
       role="status"
     >
-      <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
+      <span className="grid size-11 place-items-center rounded-xl bg-blue-light text-blue">
         <Icon aria-hidden="true" size={21} />
       </span>
       <h3 className="mt-4 font-semibold text-navy">{title}</h3>

@@ -25,10 +25,10 @@ function PatientHistory() {
   return (
     <section
       aria-labelledby="patient-history-title"
-      className="rounded-2xl border border-line bg-white p-6 sm:p-7"
+      className="surface-panel rounded-2xl border border-line bg-white p-6 sm:p-7"
     >
       <div className="mb-5 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
+        <span className="grid size-11 place-items-center rounded-xl bg-blue-light text-blue">
           <History aria-hidden="true" size={21} />
         </span>
         <div>
@@ -66,7 +66,7 @@ function PatientHistory() {
         <ol className="space-y-3">
           {patientCheckIns.map((checkIn) => (
             <li
-              className="rounded-xl border border-line bg-white p-4"
+              className="surface-quiet p-4"
               key={checkIn.id}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -83,7 +83,7 @@ function PatientHistory() {
                     Timestamp not provided
                   </span>
                 )}
-                <span className="rounded-full bg-teal-light px-2.5 py-1 text-xs font-semibold text-teal-dark">
+                <span className="status-chip bg-teal-light text-teal-dark">
                   {dataMode === 'demo' ? 'Demo entry' : 'Live backend record'}
                 </span>
               </div>

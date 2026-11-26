@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 function InformationList({ title, items, emptyText = 'Not specified' }) {
   return (
-    <section className="rounded-xl border border-line p-4">
+    <section className="surface-quiet p-4">
       <h3 className="text-sm font-semibold text-navy">{title}</h3>
       {items.length > 0 ? (
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-muted">
@@ -24,6 +24,14 @@ const adherenceStatusLabels = {
   not_completed: 'Not completed',
   need_help: 'Need help',
   not_applicable: 'Not applicable',
+}
+
+const adherenceStatusStyles = {
+  unreported: 'bg-slate-100 text-slate-700',
+  completed: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200',
+  not_completed: 'bg-amber-50 text-amber-900 ring-1 ring-amber-200',
+  need_help: 'bg-rose-50 text-rose-900 ring-1 ring-rose-200',
+  not_applicable: 'bg-blue-light text-blue',
 }
 
 function RecoveryAdherenceChecklist({ items, dataMode, readOnly, onUpdateAdherence }) {
@@ -96,12 +104,19 @@ function RecoveryAdherenceChecklist({ items, dataMode, readOnly, onUpdateAdheren
           }
           const isSaving = savingItemId === item.item_id
           return (
-            <li className="rounded-xl border border-line p-4" key={item.item_id}>
+            <li className="surface-quiet p-4" key={item.item_id}>
               <p className="text-sm leading-6 text-navy">{item.instruction}</p>
-              <p className="mt-2 text-xs font-medium text-muted">
-                Reported status: {adherenceStatusLabels[item.status] ?? 'Not reported'}
-                {item.reported_at ? ` · ${new Date(item.reported_at).toLocaleString()}` : ''}
-              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-muted">Reported status</span>
+                <span className={`status-chip ${adherenceStatusStyles[item.status] ?? adherenceStatusStyles.unreported}`}>
+                  {adherenceStatusLabels[item.status] ?? 'Not reported'}
+                </span>
+                {item.reported_at ? (
+                  <time className="text-xs text-muted" dateTime={item.reported_at}>
+                    {new Date(item.reported_at).toLocaleString()}
+                  </time>
+                ) : null}
+              </div>
               {item.patient_note ? (
                 <p className="mt-2 text-sm text-muted">Patient note: {item.patient_note}</p>
               ) : null}
@@ -109,7 +124,7 @@ function RecoveryAdherenceChecklist({ items, dataMode, readOnly, onUpdateAdheren
                 <label className="block text-xs font-semibold text-navy">
                   Patient-reported status
                   <select
-                    className="mt-1 block min-h-10 w-full rounded-lg border border-line bg-white px-3 text-sm"
+                    className="field-control mt-1 block min-h-10 px-3 text-sm"
                     disabled={dataMode !== 'live' || readOnly || savingItemId !== null}
                     onChange={(event) => updateDraft(item.item_id, 'status', event.target.value)}
                     value={draft.status}
@@ -122,14 +137,14 @@ function RecoveryAdherenceChecklist({ items, dataMode, readOnly, onUpdateAdheren
                 <label className="block text-xs font-semibold text-navy">
                   Optional note
                   <input
-                    className="mt-1 block min-h-10 w-full rounded-lg border border-line px-3 text-sm font-normal"
+                    className="field-control mt-1 block min-h-10 px-3 text-sm font-normal"
                     disabled={dataMode !== 'live' || readOnly || savingItemId !== null}
                     onChange={(event) => updateDraft(item.item_id, 'patient_note', event.target.value)}
                     value={draft.patient_note}
                   />
                 </label>
                 <button
-                  className="min-h-10 rounded-full bg-teal px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="button-primary disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={dataMode !== 'live' || readOnly || savingItemId !== null}
                   onClick={() => save(item)}
                   type="button"
@@ -170,7 +185,7 @@ function RecoveryPlanDetails({
           <ul className="mt-2 grid gap-3 sm:grid-cols-2">
             {normalizedPlan.medications.map((medication, index) => (
               <li
-                className="rounded-xl border border-line bg-white p-4"
+                className="surface-quiet border-l-4 border-l-teal p-4"
                 key={`${medication.name}-${index}`}
               >
                 <p className="font-semibold text-navy">{medication.name}</p>

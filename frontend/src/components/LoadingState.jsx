@@ -4,7 +4,7 @@ function LoadingState({ message = 'Loading demo content...' }) {
   return (
     <div
       aria-live="polite"
-      className="flex items-center gap-3 rounded-2xl border border-line bg-white p-6 text-muted"
+      className="surface-panel flex items-center gap-3 rounded-xl border border-line bg-white p-6 text-muted"
       role="status"
     >
       <LoaderCircle

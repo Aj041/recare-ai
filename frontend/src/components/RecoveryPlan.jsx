@@ -26,10 +26,10 @@ function RecoveryPlan() {
   return (
     <section
       aria-labelledby="recovery-plan-title"
-      className="rounded-2xl border border-line bg-white p-6 sm:p-7"
+      className="surface-panel rounded-2xl border border-line bg-white p-6 sm:p-7"
     >
       <div className="mb-5 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
+        <span className="grid size-11 place-items-center rounded-xl bg-blue-light text-blue">
           <ClipboardList aria-hidden="true" size={21} />
         </span>
         <div>
@@ -89,7 +89,7 @@ function RecoveryPlan() {
               </button>
             </div>
           ) : null}
-          <p className="mb-4 rounded-lg bg-teal-light px-4 py-3 text-sm font-medium text-teal-dark">
+          <p className="mb-4 rounded-xl border border-teal/15 bg-teal-light/70 px-4 py-3 text-sm leading-6 text-teal-dark">
             {dataMode === 'demo'
               ? 'Synthetic demo fixture. This content is not generated from or analyzed from a PDF.'
               : 'Structured information interpreted from this patient’s saved discharge document. It is not a diagnosis or prescription.'}

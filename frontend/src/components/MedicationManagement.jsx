@@ -139,7 +139,7 @@ function MedicationManagement() {
   return (
     <section
       aria-labelledby="medication-management-title"
-      className="rounded-2xl border border-line bg-white p-6 sm:p-7"
+      className="surface-panel rounded-2xl border border-line bg-white p-6 sm:p-7"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -155,7 +155,7 @@ function MedicationManagement() {
         </div>
         {isAuthenticated && selectedPatient ? (
           <button
-            className="min-h-10 rounded-full border border-line px-4 text-sm font-semibold text-navy hover:bg-canvas"
+            className="button-secondary"
             disabled={loading || saving}
             onClick={load}
             type="button"
@@ -197,15 +197,15 @@ function MedicationManagement() {
           ) : null}
           <ul className="mt-5 space-y-4">
             {medicationData?.medications?.map((medication) => (
-              <li className="rounded-xl border border-line p-4" key={medication.medication_id}>
+              <li className="surface-quiet border-l-4 border-l-teal p-4" key={medication.medication_id}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h3 className="font-semibold text-navy">{medication.name}</h3>
-                    <p className="mt-1 text-sm text-muted">Current documented medication details</p>
+                    <span className="status-chip mt-2 bg-teal-light text-teal-dark">Current documented details</span>
                   </div>
                   {editingId !== medication.medication_id ? (
                     <button
-                      className="inline-flex min-h-9 items-center gap-2 rounded-full border border-line px-4 text-sm font-semibold text-navy hover:bg-canvas"
+                      className="button-secondary"
                       disabled={saving}
                       onClick={() => beginEdit(medication)}
                       type="button"
@@ -215,7 +215,7 @@ function MedicationManagement() {
                   ) : null}
                 </div>
                 {editingId === medication.medication_id && draft ? (
-                  <form className="mt-4 grid gap-3" onSubmit={(event) => requestConfirmation(event, medication)}>
+                  <form className="surface-quiet mt-4 grid gap-3 p-4" onSubmit={(event) => requestConfirmation(event, medication)}>
                     <div className="grid gap-3 sm:grid-cols-3">
                       {[
                         ['dosage', 'Dosage'],
@@ -225,7 +225,7 @@ function MedicationManagement() {
                         <label className="text-xs font-semibold text-navy" key={field}>
                           {label}
                           <input
-                            className="mt-1 block min-h-10 w-full rounded-lg border border-line px-3 text-sm font-normal"
+                            className="field-control mt-1 block min-h-10 px-3 text-sm font-normal"
                             onChange={(event) => updateDraft(field, event.target.value)}
                             required
                             value={draft[field]}
@@ -236,7 +236,7 @@ function MedicationManagement() {
                     <label className="text-xs font-semibold text-navy">
                       Instructions
                       <textarea
-                        className="mt-1 block min-h-20 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal"
+                        className="field-control mt-1 block min-h-20 px-3 py-2 text-sm font-normal"
                         onChange={(event) => updateDraft('instructions', event.target.value)}
                         required
                         value={draft.instructions}
@@ -245,18 +245,18 @@ function MedicationManagement() {
                     <label className="text-xs font-semibold text-navy">
                       Reason for change
                       <textarea
-                        className="mt-1 block min-h-20 w-full rounded-lg border border-line px-3 py-2 text-sm font-normal"
+                        className="field-control mt-1 block min-h-20 px-3 py-2 text-sm font-normal"
                         onChange={(event) => updateDraft('reason', event.target.value)}
                         required
                         value={draft.reason}
                       />
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      <button className="min-h-10 rounded-full bg-teal px-4 text-sm font-semibold text-white" type="submit">
+                      <button className="button-primary" type="submit">
                         Review update
                       </button>
                       <button
-                        className="min-h-10 rounded-full border border-line px-4 text-sm font-semibold text-navy"
+                        className="button-secondary"
                         onClick={() => { setEditingId(null); setDraft(null); setConfirmation(null) }}
                         type="button"
                       >
@@ -266,10 +266,10 @@ function MedicationManagement() {
                   </form>
                 ) : (
                   <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-                    <div><dt className="text-xs text-muted">Dosage</dt><dd className="mt-1 text-navy">{medication.dosage}</dd></div>
-                    <div><dt className="text-xs text-muted">Frequency</dt><dd className="mt-1 text-navy">{medication.frequency}</dd></div>
-                    <div><dt className="text-xs text-muted">Duration</dt><dd className="mt-1 text-navy">{medication.duration}</dd></div>
-                    <div className="sm:col-span-3"><dt className="text-xs text-muted">Instructions</dt><dd className="mt-1 whitespace-pre-wrap text-navy">{medication.instructions}</dd></div>
+                    <div className="rounded-lg bg-white/80 p-3"><dt className="text-xs font-medium text-muted">Dosage</dt><dd className="mt-1 font-medium text-navy">{medication.dosage}</dd></div>
+                    <div className="rounded-lg bg-white/80 p-3"><dt className="text-xs font-medium text-muted">Frequency</dt><dd className="mt-1 font-medium text-navy">{medication.frequency}</dd></div>
+                    <div className="rounded-lg bg-white/80 p-3"><dt className="text-xs font-medium text-muted">Duration</dt><dd className="mt-1 font-medium text-navy">{medication.duration}</dd></div>
+                    <div className="rounded-lg bg-white/80 p-3 sm:col-span-3"><dt className="text-xs font-medium text-muted">Instructions</dt><dd className="mt-1 whitespace-pre-wrap text-navy">{medication.instructions}</dd></div>
                   </dl>
                 )}
               </li>
@@ -277,14 +277,14 @@ function MedicationManagement() {
           </ul>
 
           {confirmation ? (
-            <section className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4" aria-live="polite">
+            <section className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 shadow-sm" aria-live="polite">
               <h3 className="font-semibold text-amber-950">Confirm medication update</h3>
               <p className="mt-1 text-sm leading-6 text-amber-950">
                 Save the updated details for {confirmation.medication.name} with the documented reason? This creates a permanent history record.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
-                  className="inline-flex min-h-10 items-center gap-2 rounded-full bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-60"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-700 bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
                   disabled={saving}
                   onClick={confirmUpdate}
                   type="button"
@@ -293,7 +293,7 @@ function MedicationManagement() {
                   Confirm and save
                 </button>
                 <button
-                  className="inline-flex min-h-10 items-center gap-2 rounded-full border border-amber-300 px-4 text-sm font-semibold text-amber-950"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-amber-300 bg-white px-4 text-sm font-semibold text-amber-950 hover:bg-amber-100"
                   disabled={saving}
                   onClick={() => setConfirmation(null)}
                   type="button"
@@ -307,15 +307,32 @@ function MedicationManagement() {
           <section className="mt-7" aria-labelledby="medication-history-title">
             <h3 className="font-semibold text-navy" id="medication-history-title">Modification history</h3>
             {medicationData?.history?.length ? (
-              <ol className="mt-3 space-y-3">
+              <ol className="history-timeline mt-3 space-y-3">
                 {medicationData.history.map((entry) => (
-                  <li className="rounded-xl border border-line bg-canvas p-4" key={entry.id}>
+                  <li className="history-entry" key={entry.id}>
                     <p className="font-semibold text-navy">{entry.medication_name}</p>
                     <p className="mt-1 text-sm text-muted">Updated by {entry.doctor_email} · {formatDate(entry.created_at)}</p>
                     <p className="mt-2 text-sm leading-6 text-navy"><span className="font-semibold">Reason:</span> {entry.reason}</p>
-                    <p className="mt-2 text-sm leading-6 text-muted">
-                      Dosage: {entry.previous_details.dosage} → {entry.updated_details.dosage}; frequency: {entry.previous_details.frequency} → {entry.updated_details.frequency}; duration: {entry.previous_details.duration} → {entry.updated_details.duration}.
-                    </p>
+                    <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                      <div className="rounded-lg border border-line bg-white p-3">
+                        <dt className="text-xs font-semibold text-muted">Previous details</dt>
+                        <dd className="mt-2 space-y-1 text-navy">
+                          <p>Dosage: {entry.previous_details.dosage}</p>
+                          <p>Frequency: {entry.previous_details.frequency}</p>
+                          <p>Duration: {entry.previous_details.duration}</p>
+                          <p>Instructions: {entry.previous_details.instructions}</p>
+                        </dd>
+                      </div>
+                      <div className="rounded-lg border border-teal/20 bg-teal-light/40 p-3">
+                        <dt className="text-xs font-semibold text-teal-dark">Current details</dt>
+                        <dd className="mt-2 space-y-1 text-navy">
+                          <p>Dosage: {entry.updated_details.dosage}</p>
+                          <p>Frequency: {entry.updated_details.frequency}</p>
+                          <p>Duration: {entry.updated_details.duration}</p>
+                          <p>Instructions: {entry.updated_details.instructions}</p>
+                        </dd>
+                      </div>
+                    </dl>
                   </li>
                 ))}
               </ol>

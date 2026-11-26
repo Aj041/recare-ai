@@ -42,10 +42,10 @@ function PatientList() {
   return (
     <section
       aria-labelledby="patient-list-title"
-      className="rounded-2xl border border-line bg-white p-6 sm:p-7"
+      className="surface-panel rounded-2xl border border-line bg-white p-6 sm:p-7"
     >
       <div className="mb-5 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
+        <span className="grid size-11 place-items-center rounded-xl bg-blue-light text-blue">
           <CircleUserRound aria-hidden="true" size={21} />
         </span>
         <div>
@@ -69,7 +69,7 @@ function PatientList() {
         />
         <input
           autoComplete="off"
-          className="min-h-11 w-full rounded-lg border border-line bg-white pl-10 pr-3 text-navy placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
+          className="field-control min-h-11 w-full pl-10 pr-3 placeholder:text-muted"
           id="patient-search"
           onChange={(event) => setSearchTerm(event.target.value)}
           placeholder="Search name or patient ID"
@@ -119,7 +119,7 @@ function PatientList() {
           />
         </div>
       ) : (
-        <ul className="mt-2 divide-y divide-line">
+        <ul className="mt-2 divide-y divide-line/70">
           {filteredPatients.map((patient) => {
             const latestCheckIn = getLatestCheckIn(checkIns, patient.id)
             const evaluation = normalizeAlertEvaluation(
@@ -154,7 +154,7 @@ function PatientList() {
                 <button
                   aria-pressed={isSelected}
                   className={`flex min-h-20 w-full flex-wrap items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal ${
-                    isSelected ? 'bg-teal-light/70' : 'hover:bg-canvas'
+                    isSelected ? 'bg-teal-light/70 ring-1 ring-inset ring-teal/20' : 'hover:bg-canvas'
                   }`}
                   onClick={() => selectPatient(patient.id)}
                   type="button"
@@ -184,10 +184,10 @@ function PatientList() {
                       </span>
                     )}
                     <span
-                      className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      className={`status-chip mt-2 ${
                         evaluation.state === 'alerts_returned'
-                          ? 'bg-amber-50 text-amber-900'
-                          : 'bg-canvas text-muted'
+                          ? 'bg-amber-50 text-amber-900 ring-1 ring-amber-200'
+                          : 'bg-blue-light text-blue'
                       }`}
                     >
                       {liveReviewStatus}

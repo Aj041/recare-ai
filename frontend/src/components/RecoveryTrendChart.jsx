@@ -28,7 +28,7 @@ function TrendPanel({
   return (
     <section
       aria-label={title}
-      className="rounded-xl border border-line p-4 sm:p-5"
+      className="surface-quiet min-w-0 overflow-hidden p-4 sm:p-5"
     >
       <h3 className="font-semibold text-navy">{title}</h3>
       {measurementCount < 2 ? (
@@ -49,7 +49,7 @@ function TrendPanel({
             </figcaption>
             <div
               aria-label={`${title} over time for the selected ${dataMode} patient`}
-              className="h-72 w-full"
+              className="h-72 min-w-0 w-full"
               role="img"
             >
               <ResponsiveContainer height="100%" width="100%">
@@ -58,13 +58,13 @@ function TrendPanel({
                   data={data}
                   margin={{ top: 10, right: 12, bottom: 40, left: 12 }}
                 >
-                  <CartesianGrid stroke="#dce5e2" strokeDasharray="4 4" />
+                  <CartesianGrid stroke="#d9e4e8" strokeDasharray="4 4" />
                   <XAxis
                     axisLine={false}
                     dataKey="date"
                     height={60}
                     interval="preserveStartEnd"
-                    tick={{ fill: '#526571', fontSize: 11 }}
+                    tick={{ fill: '#536978', fontSize: 11 }}
                     tickLine={false}
                     tickMargin={12}
                     tickFormatter={(value) =>
@@ -78,14 +78,14 @@ function TrendPanel({
                       position="insideBottom"
                       offset={-24}
                       value="Check-in date"
-                      fill="#526571"
+                      fill="#536978"
                     />
                   </XAxis>
                   <YAxis
                     axisLine={false}
                     domain={domain}
                     ticks={ticks}
-                    tick={{ fill: '#526571', fontSize: 11 }}
+                    tick={{ fill: '#536978', fontSize: 11 }}
                     tickLine={false}
                     width={48}
                   >
@@ -94,7 +94,7 @@ function TrendPanel({
                       position="insideLeft"
                       style={{ textAnchor: 'middle' }}
                       value={unit}
-                      fill="#526571"
+                      fill="#536978"
                     />
                   </YAxis>
                   <Tooltip
@@ -159,7 +159,7 @@ function RecoveryTrendChart() {
   return (
     <section
       aria-labelledby="recovery-trend-title"
-      className="rounded-2xl border border-line bg-white p-6 sm:p-7"
+      className="surface-panel rounded-2xl border border-line bg-white p-6 sm:p-7"
     >
       <div className="mb-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -188,7 +188,7 @@ function RecoveryTrendChart() {
           title="Live measurements unavailable"
         />
       ) : (
-        <div className="grid gap-5 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-5 xl:grid-cols-2">
           <TrendPanel
             color="#0f766e"
             dataMode={dataMode}
@@ -202,7 +202,7 @@ function RecoveryTrendChart() {
             unit="Score (0-10)"
           />
           <TrendPanel
-            color="#153449"
+            color="#24627f"
             dataMode={dataMode}
             data={chartData}
             dataKey="temperature_c"

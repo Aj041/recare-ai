@@ -34,10 +34,10 @@ function PatientOverview() {
   return (
     <section
       aria-labelledby="patient-overview-title"
-      className="rounded-2xl border border-line bg-white p-6 sm:p-7"
+      className="surface-panel rounded-2xl border border-line bg-white p-6 sm:p-7"
     >
       <div className="mb-5 flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-xl bg-teal-light text-teal-dark">
+        <span className="grid size-11 place-items-center rounded-xl bg-blue-light text-blue">
           <UserRound aria-hidden="true" size={21} />
         </span>
         <div>
@@ -57,7 +57,7 @@ function PatientOverview() {
         />
       ) : (
         <>
-          <div className="rounded-xl bg-canvas p-4">
+          <div className="surface-quiet p-4">
             <p className="text-lg font-semibold text-navy">
               {selectedPatient.displayName}
             </p>
@@ -125,7 +125,7 @@ function PatientOverview() {
               <p className="mt-3 text-sm text-muted">No check-ins recorded.</p>
             ) : (
               <>
-                <div className="mt-3 space-y-2 rounded-xl bg-canvas p-4 text-sm leading-6 text-navy">
+                <div className="surface-quiet mt-3 space-y-2 p-4 text-sm leading-6 text-navy">
                   <p className="whitespace-pre-wrap break-words">
                     <span className="font-semibold">
                       {dataMode === 'live'

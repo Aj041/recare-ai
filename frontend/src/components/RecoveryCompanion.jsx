@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, CircleAlert, LoaderCircle, Play, ShieldCheck, X } from 'lucide-react'
+import { CalendarDays, Check, ChevronDown, CircleAlert, FileText, LoaderCircle, Play, ShieldCheck, X } from 'lucide-react'
 import { apiService } from '../services/api.js'
 import { useDoctorAuth } from '../context/useDoctorAuth.js'
 import { usePatientData } from '../context/usePatientData.js'
@@ -74,6 +74,51 @@ function buildEvidenceMap(historyResponse, planResponse, alertsResponse) {
   return evidence
 }
 
+const evidenceTypeLabels = {
+  patient_check_in: 'Patient check-in',
+  discharge_plan: 'Discharge plan',
+  patient_reported_adherence: 'Recovery instruction report',
+  existing_alert: 'Existing alert record',
+}
+
+const evidenceFieldLabels = {
+  date: 'Check-in date',
+  pain_level: 'Pain score',
+  symptoms: 'Reported symptoms',
+  reported_symptoms: 'Patient-reported symptoms',
+  notes: 'Patient note',
+  plan: 'Discharge plan details',
+  item_id: 'Instruction item',
+  instruction: 'Recovery instruction',
+  status: 'Reported status',
+  reported_at: 'Report date',
+  patient_note: 'Patient note',
+  severity: 'Alert severity',
+  message: 'Alert description',
+  rule_triggered: 'Recorded trigger',
+  supporting_check_ins: 'Supporting check-ins',
+  created_at: 'Recorded date',
+}
+
+function evidenceFieldLabel(field) {
+  return evidenceFieldLabels[field] ?? field.replaceAll('_', ' ')
+}
+
+function formatEvidenceValue(value) {
+  if (Array.isArray(value)) {
+    return value.map(formatEvidenceValue).join(', ')
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value)
+      .map(([field, detail]) => `${evidenceFieldLabel(field)}: ${formatEvidenceValue(detail)}`)
+      .join(' · ')
+  }
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  return value === null || value === undefined || value === ''
+    ? 'Not provided'
+    : String(value)
+}
+
 function EvidenceList({ references, evidenceById }) {
   if (!references?.length) {
     return <p className="mt-3 text-sm text-muted">No supporting record was returned.</p>
@@ -84,16 +129,43 @@ function EvidenceList({ references, evidenceById }) {
       <h4 className="text-xs font-bold uppercase tracking-wide text-muted">Supporting evidence</h4>
       {references.map((reference) => {
         const record = evidenceById[reference]
+        const fields = record
+          ? Object.entries(record).filter(([field]) =>
+              !['evidence_id', 'record_type', 'care_plan_id'].includes(field),
+            )
+          : []
         return (
-          <details className="rounded-lg border border-line bg-canvas p-3" key={reference}>
-            <summary className="cursor-pointer text-sm font-semibold text-navy">
-              {record?.record_type?.replaceAll('_', ' ') ?? 'Source record'} · {reference}
+          <details className="surface-quiet p-3" key={reference}>
+            <summary className="flex cursor-pointer list-none items-center gap-3 text-sm font-semibold text-navy marker:hidden">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white text-blue shadow-sm">
+                <FileText aria-hidden="true" size={17} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block">{evidenceTypeLabels[record?.record_type] ?? 'Supporting record'}</span>
+                {record?.date ? (
+                  <span className="mt-0.5 flex items-center gap-1 text-xs font-normal text-muted">
+                    <CalendarDays aria-hidden="true" size={13} /> {record.date}
+                  </span>
+                ) : null}
+              </span>
+              <ChevronDown aria-hidden="true" className="evidence-chevron shrink-0 text-muted" size={17} />
             </summary>
-            <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-muted">
-              {record
-                ? JSON.stringify(record, null, 2)
-                : 'This stored observation references the record above. Its snapshot is not available in the current API response.'}
-            </pre>
+            {record ? (
+              <dl className="mt-3 grid gap-3 border-t border-line pt-3 sm:grid-cols-2">
+                {fields.map(([field, value]) => (
+                  <div className="min-w-0" key={field}>
+                    <dt className="text-xs font-medium text-muted">{evidenceFieldLabel(field)}</dt>
+                    <dd className="mt-1 break-words text-sm leading-5 text-navy">
+                      {formatEvidenceValue(value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="mt-3 border-t border-line pt-3 text-sm leading-5 text-muted">
+                This observation references a supporting record, but its details are not available in the current response.
+              </p>
+            )}
           </details>
         )
       })}
@@ -230,7 +302,7 @@ function RecoveryCompanion() {
   return (
     <section
       aria-labelledby="recovery-companion-title"
-      className="rounded-2xl border border-line bg-white p-6 sm:p-7"
+      className="surface-panel rounded-2xl border border-line bg-white p-6 sm:p-7"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -246,7 +318,7 @@ function RecoveryCompanion() {
         </div>
         {isAuthenticated ? (
           <button
-            className="min-h-10 rounded-full border border-line px-4 text-sm font-semibold text-navy hover:bg-canvas"
+            className="button-secondary"
             onClick={logout}
             type="button"
           >
@@ -274,7 +346,7 @@ function RecoveryCompanion() {
               Patient: <span className="font-semibold text-navy">{selectedPatient.displayName}</span> · ID {selectedPatient.id}
             </p>
             <button
-              className="inline-flex min-h-10 items-center gap-2 rounded-full bg-teal px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60"
+              className="button-primary disabled:cursor-wait disabled:opacity-60"
               disabled={running || loadingRecords}
               onClick={runAgent}
               type="button"
@@ -283,7 +355,7 @@ function RecoveryCompanion() {
               {running ? 'Running agent…' : 'Run Agent'}
             </button>
             <button
-              className="min-h-10 rounded-full border border-line px-4 text-sm font-semibold text-navy hover:bg-canvas disabled:opacity-60"
+              className="button-secondary disabled:opacity-60"
               disabled={loadingRecords || running}
               onClick={loadRecords}
               type="button"
@@ -318,10 +390,10 @@ function RecoveryCompanion() {
               ) : null}
               <ul className="mt-3 space-y-3">
                 {observations.map((observation) => (
-                  <li className="rounded-xl border border-line p-4" key={observation.id}>
+                  <li className={`surface-quiet border-l-4 p-4 ${observation.source === 'system_generated' ? 'border-l-amber-400' : 'border-l-teal'}`} key={observation.id}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h4 className="font-semibold text-navy">{observation.title}</h4>
-                      <span className="rounded-full bg-teal-light px-3 py-1 text-xs font-semibold text-teal-dark">
+                      <span className={`status-chip ${observation.source === 'system_generated' ? 'bg-amber-50 text-amber-900 ring-1 ring-amber-200' : 'bg-teal-light text-teal-dark'}`}>
                         {observation.source === 'system_generated' ? 'Deterministic system observation' : 'AI-generated observation'}
                       </span>
                     </div>
@@ -341,10 +413,10 @@ function RecoveryCompanion() {
               ) : null}
               <ul className="mt-3 space-y-3">
                 {tasks.map((task) => (
-                  <li className="rounded-xl border border-line p-4" key={task.id}>
+                  <li className="surface-quiet border-l-4 border-l-blue p-4" key={task.id}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h4 className="font-semibold text-navy">{task.title}</h4>
-                      <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ring-1 ${statusStyle[task.status] ?? statusStyle.pending}`}>
+                      <span className={`status-chip capitalize ring-1 ${statusStyle[task.status] ?? statusStyle.pending}`}>
                         {task.status}
                       </span>
                     </div>
@@ -360,7 +432,7 @@ function RecoveryCompanion() {
                     {task.status === 'pending' ? (
                       <div className="mt-4 flex flex-wrap gap-2">
                         <button
-                          className="inline-flex min-h-9 items-center gap-2 rounded-full bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-50"
+                          className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-emerald-700 bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
                           disabled={reviewingTaskId !== null}
                           onClick={() => reviewTask(task, 'approved')}
                           type="button"
@@ -369,7 +441,7 @@ function RecoveryCompanion() {
                           Approve
                         </button>
                         <button
-                          className="inline-flex min-h-9 items-center gap-2 rounded-full border border-rose-300 px-4 text-sm font-semibold text-rose-900 disabled:opacity-50"
+                          className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-rose-300 bg-white px-4 text-sm font-semibold text-rose-900 hover:bg-rose-50 disabled:opacity-50"
                           disabled={reviewingTaskId !== null}
                           onClick={() => reviewTask(task, 'rejected')}
                           type="button"
